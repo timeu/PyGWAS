@@ -179,6 +179,8 @@ class LinearModel(object):
         n_p = n - p
         num_snps = genotype.num_snps
 
+
+        log.info('Starting regression scan',extra={'progress':25})
         if not progress_file_writer == None:
             progress_file_writer.update_progress_bar(progress=0.25, task_status='Starting regression scan')
         h0_X = sp.mat(self.X, dtype=dtype)
@@ -218,7 +220,8 @@ class LinearModel(object):
                 rss_list[i] = rss[0]
                 
                 if (i+1) % (num_snps / 10) == 0:
-                    log.debug('%0.1f%%' % (100.0 * i / num_snps))
+                    perc = 100.0 * i / num_snps
+                    log.info('Performing regression (completed:%d %%)' % perc,extra={progress:25 + 80*perc/100})
                 if not progress_file_writer == None:
                    progress_file_writer.update_progress_bar(task_status='Performing regression (completed: %d %%)' % (100.0 * i / num_snps))
                 i += 1
@@ -1247,6 +1250,7 @@ class LinearMixedModel(LinearModel):
             log_bfs = sp.zeros(num_snps)  # Bayes factors
         if not progress_file_writer == None:
             progress_file_writer.update_progress_bar(progress=0.25, task_status='Starting AMM scan')
+        log.info('Starting AMM scan',extra={'progress':25})
         i = 0
 
         for snps_chunk in snps:
@@ -1267,7 +1271,8 @@ class LinearMixedModel(LinearModel):
                 if snp_priors != None:
                     log_bfs[i] = log_h0_rss - sp.log(rss)  # -(1/2)*log(n)
                 if (i+1) % (num_snps / 10) == 0:
-                    log.debug('%0.1f%%' % (100.0 * i / num_snps))
+                    perc = round(100.0 * i /num_snps)
+                    log.info('Performing AMM (SNPs completed: %d %%)' % perc,extra={'progress':25 + 55*perc/100}) 
                 i += 1
         rss_ratio = h0_rss / rss_list
         var_perc = 1 - 1 / rss_ratio
@@ -1291,9 +1296,10 @@ class LinearMixedModel(LinearModel):
 
         if emma_num > 0:
             pval_indices = sorted(zip(res_d['ps'], range(num_snps)))[:emma_num]
+
             if not progress_file_writer == None:
                 progress_file_writer.update_progress_bar(task_status='Replacing smallest p-values with exact mixed model p-values')
-            log.debug('Updating p-values using EMMA for the smallest %d p-values.' % len(pval_indices))
+            log.info('Updating p-values using EMMA for the smallest %d p-values.' % len(pval_indices),extra={'progress':81})
             l = map(list, zip(*pval_indices))
             chr_pos = [genotype.get_chr_pos_from_index(ix) for ix in l[1] ]
             top_snps = genotype.get_snps_from_pos(chr_pos)[1]

@@ -67,7 +67,15 @@ def get_quantiles(scores, num_dots=1000):
 
 
 
+def calculate_qqplot_data(pvals,num_dots=1000,max_val=6):
+    quantiles = get_quantiles(pvals, num_dots=num_dots)
+    exp_quantiles = _getExpectedPvalueQuantiles_(num_dots)
+    log_quantiles = get_log_quantiles(pvals, num_dots=num_dots, max_val=max_val)
+    exp_log_quantiles = sp.arange(1, num_dots + 1, dtype='single') / (num_dots + 1) * max_val
 
+    quantiles_dict = {'quantiles':quantiles, 'exp_quantiles':exp_quantiles,
+            'log_quantiles':log_quantiles, 'exp_log_quantiles':exp_log_quantiles}
+    return quantiles_dict
 
 
 
