@@ -71,7 +71,7 @@ USAGE
         parser = get_parser(program_license,program_version_message)
         args = parser.parse_args()
         result = perform_gwas(args.file,args.analysis_method, args.genotype_folder,args.genotype,args.transformation,args.kinship)
-        result.save_as_hdf5(args.file)
+        result.save_as_hdf5(args.outputfile)
         return 0
     except KeyboardInterrupt:
         ### handle keyboard interrupt ###
