@@ -569,7 +569,7 @@ class LinearMixedModel(LinearModel):
 
 
     def _get_eigen_L_(self, K=None, dtype='single'):
-        if K == None:
+        if K is None:
             K = self.random_effects[1][1]
         if sp.__version__ < '0.8':
             K = sp.mat(K, dtype=dtype)
@@ -580,13 +580,13 @@ class LinearMixedModel(LinearModel):
 
 
     def _get_eigen_R_(self, X=None, K=None, hat_matrix=None, dtype='single'):
-        if X == None:
+        if X is None:
             X = self.X
         q = X.shape[1]
         if not hat_matrix:
             X_squared_inverse = linalg.pinv(X.T * X)  # (X.T*X).I
             hat_matrix = X * X_squared_inverse * X.T
-        if K == None:
+        if K is None:
             K = self.random_effects[1][1]
         S = sp.mat(sp.identity(self.n)) - hat_matrix  # S=I-X(X'X)^{-1}X'
         M = sp.mat(S * (K + self.random_effects[0][1]) * S, dtype='double')
@@ -657,7 +657,7 @@ class LinearMixedModel(LinearModel):
         
         H is the (full) covariance matrix, which speeds up calculations if it's available.
         """
-        if H == None:
+        if H is None:
             if not eig_L:
                 K = self.random_effects[1][1]
                 eig_L = self._get_eigen_L_(K)
@@ -688,7 +688,7 @@ class LinearMixedModel(LinearModel):
 
         if verbose:
             print 'Retrieving %s variance estimates' % method
-        if xs != None:
+        if xs is not None:
             X = sp.hstack([self.X, xs])
         else:
             X = self.X
@@ -761,12 +761,12 @@ class LinearMixedModel(LinearModel):
         """
         if verbose:
             print 'Retrieving %s variance estimates' % method
-        if xs != None:
+        if xs is not None:
             X = sp.hstack([self.X, xs])
         else:
             X = self.X
 
-        if not (eig_R and xs != None):
+        if not (eig_R and xs is not None):
             eig_R = self._get_eigen_R_(X=X, K=K)
         q = X.shape[1]  # number of columns
         n = self.n
@@ -893,7 +893,7 @@ class LinearMixedModel(LinearModel):
             'rss':rss, 'mahalanobis_rss':mahalanobis_rss, 'H_sqrt_inv':H_sqrt_inv,
             'pseudo_heritability':1.0 / (1 + opt_delta)}
 
-        if xs != None and return_f_stat:
+        if xs is not None and return_f_stat:
 #            rss_ratio = h0_rss / rss_list
 #            var_perc = 1 - 1 / rss_ratio
 #            f_stats = (rss_ratio - 1) * n_p / float(q)
@@ -916,7 +916,7 @@ class LinearMixedModel(LinearModel):
         """
         assert len(self.random_effects) == 2, "Expedited REMLE only works when we have exactly two random effects."
         K = self.random_effects[1][1]
-        if eig_L == None:
+        if eig_L is None:
             eig_L = self._get_eigen_L_(K)
         num_snps = len(snps)
         f_stats = sp.empty(num_snps)
@@ -1229,7 +1229,7 @@ class LinearMixedModel(LinearModel):
         Y = sp.mat(Y - h0_X * h0_betas, dtype=dtype)
         h0_betas = map(float, list(h0_betas))
 
-        if Z != None:
+        if Z is not None:
             H_sqrt_inv = H_sqrt_inv * Z
 
         if not with_betas:
@@ -1244,7 +1244,7 @@ class LinearMixedModel(LinearModel):
         rss_list = sp.repeat(h0_rss, num_snps)
         if return_transformed_snps:
             t_snps = []
-        if snp_priors != None:
+        if snp_priors is not None:
             snp_priors = sp.array(snp_priors)
             log_h0_rss = sp.log(h0_rss)
             log_bfs = sp.zeros(num_snps)  # Bayes factors
@@ -1268,7 +1268,7 @@ class LinearMixedModel(LinearModel):
                 if rss:
                     rss_list[i] = rss[0]
     
-                if snp_priors != None:
+                if snp_priors is not None:
                     log_bfs[i] = log_h0_rss - sp.log(rss)  # -(1/2)*log(n)
                 if (i+1) % (num_snps / 10) == 0:
                     perc = round(100.0 * i /num_snps)
@@ -1286,7 +1286,7 @@ class LinearMixedModel(LinearModel):
             res_d['betas'] = betas_list
         if return_transformed_snps:
             res_d['t_snps'] = t_snps
-        if snp_priors != None:
+        if snp_priors is not None:
             bfs = sp.exp((log_bfs * n - sp.log(n)) * 1 / 2)  # Bayes factors
             res_d['bfs'] = bfs
             pos = bfs * snp_priors / (1 - snp_priors)  # Posterior odds

@@ -29,7 +29,7 @@ def load_csv_genotype_data(csv_files,format='binary'):
         for i,csv_file in enumerate(csv_files):
             log.info("Loading %s " % csv_file)
             data = data_parser.parse_genotype_csv_file(csv_file,format)
-            if accessions == None:
+            if accessions is None:
                 accessions = data['accessions']
             if data['accessions'] != accessions:
                 raise Exception('Accessions must match')
@@ -336,7 +336,7 @@ class HDF5Genotype(AbstractGenotype):
         self.filter_accessions = None
 
     def __del__(self):
-        if self.h5file != None:
+        if self.h5file is not None:
            self.h5file.close()
 
     def get_snps(self):
@@ -355,7 +355,7 @@ class HDF5Genotype(AbstractGenotype):
 
     @property
     def accessions(self):
-        if self.filter_accessions == None or len(self.filter_accessions) == 0:
+        if self.filter_accessions is None or len(self.filter_accessions) == 0:
             return self.h5file['accessions'][:]
         else:
             return self.h5file['accessions'][self.filter_accessions]
@@ -369,13 +369,13 @@ class HDF5Genotype(AbstractGenotype):
             end = self.original_num_snps
         for i in xrange(start,end,chunk_size):
             stop_i = min(i + chunk_size, end)
-            if self.filter_accessions == None or len(self.filter_accessions) == 0:
-                if self.filter_snps == None:
+            if self.filter_accessions is None or len(self.filter_accessions) == 0:
+                if self.filter_snps is None:
                     yield self.h5file['snps'][i:stop_i]
                 else:
                     yield self.h5file['snps'][self.filter_snps[i:stop_i],:]
             else:
-                if self.filter_snps == None:
+                if self.filter_snps is None:
                     yield self.h5file['snps'][i:stop_i,self.filter_accessions]
                 else:
                     filter_chunk = self.filter_snps[i:stop_i]
@@ -389,7 +389,7 @@ class HDF5Genotype(AbstractGenotype):
         """
         start = 0
         end = None
-        if chr != None:
+        if chr is not None:
 			# use unfiltered chr_regions because filtering happens in _get_snps_
             chr_region = self.h5file['positions'].attrs['chr_regions'][chr-1]
             start = chr_region[0]
@@ -407,7 +407,7 @@ class HDF5Genotype(AbstractGenotype):
    
     @property
     def positions(self):
-        if self.filter_snps != None:
+        if self.filter_snps is not None:
             return self.h5file['positions'][self.filter_snps]
         return self.h5file['positions'][:]
 
@@ -417,7 +417,7 @@ class HDF5Genotype(AbstractGenotype):
         """
         snps = []
         indices = []
-        if chr_pos == None or len(chr_pos) == 0:
+        if chr_pos is None or len(chr_pos) == 0:
             return (indices,snps)
         chr_pos_ix = map(list,zip(*sorted(zip(chr_pos,range(len(chr_pos))))))
         # group by chr for efficient sequentielly iteration over snps generator
@@ -450,13 +450,13 @@ class HDF5Genotype(AbstractGenotype):
 
     @property
     def num_snps(self):
-        if self.filter_snps != None:
+        if self.filter_snps is not None:
             return self.filter_snps.sum()
         return self.original_num_snps
         
     @property
     def chr_regions(self):
-        if self.filter_snps != None:
+        if self.filter_snps is not None:
             return self.filtered_chr_regions
         return self.h5file['positions'].attrs['chr_regions']
 
@@ -475,7 +475,7 @@ class HDF5Genotype(AbstractGenotype):
 
 
     def filter_snps_ix(self,snps_ix): 
-        if snps_ix == None or len(snps_ix) == 0:
+        if snps_ix is None or len(snps_ix) == 0:
             self.filter_snps = None
             self.filtered_chr_regions = None
         else:
@@ -486,7 +486,7 @@ class HDF5Genotype(AbstractGenotype):
 
     def _get_filtered_regons(self):
         filtered_chr_regions = []
-        if self.filter_snps == None: 
+        if self.filter_snps is None: 
             return None
         start_ix = 0
         end_ix = 0
