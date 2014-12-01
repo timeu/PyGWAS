@@ -15,7 +15,7 @@ from argparse import ArgumentParser
 from argparse import RawDescriptionHelpFormatter
 from core import kinship
 from core import gwas
-import logging
+import logging, logging.config
 from core import mtcorr
 from core import statistics as stats
 from core import phenotype
@@ -25,10 +25,34 @@ import os
 import sys
 
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'default': {
+            'format': '%(asctime)s %(levelname)s %(name)s %(message)s'
+        },
+    },
+    'handlers': {
+        'stdout':{
+            'class' : 'logging.StreamHandler',
+            'stream'  : 'ext://sys.stdout',
+            'formatter': 'default',
+        },
+        'stderr':{
+            'class' : 'logging.StreamHandler',
+            'stream'  : 'ext://sys.stderr',
+            'level':'WARNING',
+            'formatter': 'default',
+        },
+    },
+    'root': {
+        'handlers': ['stdout','stderr'],
+        'level': 'INFO',
+    },
+}
 
-
-FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-logging.basicConfig(format=FORMAT,level=logging.DEBUG)
+logging.config.dictConfig(LOGGING)
 log = logging.getLogger()
 
 def get_parser(program_license,program_version_message):
@@ -77,9 +101,7 @@ USAGE
         ### handle keyboard interrupt ###
         return 0
     except Exception, e:
-        indent = len(program_name) * " "
-        sys.stderr.write(program_name + ": " + repr(e) + "\n")
-        sys.stderr.write(indent + "  for help use --help")
+        log.exception(e)
         return 2
 
 
