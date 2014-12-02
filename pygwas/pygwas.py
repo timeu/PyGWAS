@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 """
-    pygwas.pygwas
+    pygwas
     ~~~~~~~~~~~~~
 
     The main module for running Genome Wide Association studies
@@ -10,9 +10,8 @@
     :license: license_name, see LICENSE for more details
 """
 
-from __init__ import __version__,__updated__,__date__
-from argparse import ArgumentParser
-from argparse import RawDescriptionHelpFormatter
+from . import __version__,__updated__,__date__
+import argparse
 from core import kinship
 from core import gwas
 import logging, logging.config
@@ -56,7 +55,7 @@ logging.config.dictConfig(LOGGING)
 log = logging.getLogger()
 
 def get_parser(program_license,program_version_message):
-    parser = ArgumentParser(description=program_license, formatter_class=RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=program_license)
     parser.add_argument("-t", "--transformation", dest="transformation", help="Apply a transformation to the data. Default[None]", choices=["log", "sqrt", "exp", "sqr", "arcsin_sqrt", "box_cox"])
     parser.add_argument("-a", "--analysis_method", dest="analysis_method", help="analyis method to use",required=True,choices=["lm", "emma", "emmax", "kw", "ft", "emmax_anova", "lm_anova", "emmax_step", "lm_step","loc_glob_mm","amm"])
     parser.add_argument("-g", "--genotype", dest="genotype", help="genotype dataset to be used in the GWAS analysis (run with option -l to display list of available genotype datasets)", required=True, type=int,metavar="INTEGER" )
@@ -71,11 +70,10 @@ def get_parser(program_license,program_version_message):
 
 def main(): 
     '''Command line options.'''
-    program_name = os.path.basename(sys.argv[0])
     program_version = "v%s" % __version__
     program_build_date = str(__updated__)
     program_version_message = '%%(prog)s %s (%s)' % (program_version, program_build_date)
-    program_shortdesc = __import__('__main__').__doc__.split("\n")[1]
+    program_shortdesc = "The main module for running Genome Wide Association studies"
     program_license = '''%s
 
   Created by Ümit Seren on %s.
@@ -89,13 +87,12 @@ def main():
 
 USAGE
 ''' % (program_shortdesc, str(__date__))
-
+    # Process arguments
+    parser = get_parser(program_license,program_version_message)
+    args = vars(parser.parse_args())
     try:
-        # Process arguments
-        parser = get_parser(program_license,program_version_message)
-        args = parser.parse_args()
-        result = perform_gwas(args.file,args.analysis_method, args.genotype_folder,args.genotype,args.transformation,args.kinship)
-        result.save_as_hdf5(args.outputfile)
+        result = perform_gwas(args['file'],args['analysis_method'], args['genotype_folder'],args['genotype'],args['transformation'],args['kinship'])
+        result.save_as_hdf5(args['outputfile'])
         return 0
     except KeyboardInterrupt:
         ### handle keyboard interrupt ###
