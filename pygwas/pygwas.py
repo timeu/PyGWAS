@@ -41,7 +41,7 @@ LOGGING = {
         'stderr':{
             'class' : 'logging.StreamHandler',
             'stream'  : 'ext://sys.stderr',
-            'level':'WARNING',
+            'level':'ERROR',
             'formatter': 'default',
         },
     },
