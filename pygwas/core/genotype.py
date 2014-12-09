@@ -7,7 +7,9 @@ import data_parsers
 import h5py
 import numpy
 import scipy
+import csv
 import pdb
+import itertools
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 log = logging.getLogger(__name__)
@@ -25,10 +27,10 @@ def load_csv_genotype_data(csv_files,format='binary'):
     chrs = []
     accessions = None
     if type(csv_files) is list:
-        log.info("Genotype split in %s files" % len(csv_file))
+        log.info("Genotype split in %s files" % len(csv_files))
         for i,csv_file in enumerate(csv_files):
             log.info("Loading %s " % csv_file)
-            data = data_parser.parse_genotype_csv_file(csv_file,format)
+            data = data_parsers.parse_genotype_csv_file(csv_file,format)
             if accessions is None:
                 accessions = data['accessions']
             if data['accessions'] != accessions:
@@ -64,7 +66,7 @@ class AbstractGenotype(object):
         pass
 
     @abstractmethod
-    def get_snps_iterator(self,chr=None,is_chunked=False):
+    def get_snps_iterator(self,chr=None,is_chunked=False,chunk_size=1000):
         pass
 
     @abstractmethod
@@ -77,6 +79,10 @@ class AbstractGenotype(object):
 
     @abstractproperty
     def accessions(self):
+        pass
+
+    @abstractproperty
+    def snps(self):
         pass
 
     @property
@@ -97,6 +103,12 @@ class AbstractGenotype(object):
     @abstractproperty
     def chr_regions(self):
         pass
+
+    def get_chr_region_from_index(self,ix):
+        for i,chr_region in enumerate(self.chr_regions):
+            if chr_region[0] <= ix and chr_region[1] >= ix:
+                return i, chr_region
+        return None
 
     def get_chr_pos_from_index(self,ix):
         return (self.get_chr_from_index(ix),self.positions[ix])
@@ -130,6 +142,9 @@ class AbstractGenotype(object):
     def filter_snps_ix(self,accessions_ix): 
         pass
   
+    @abstractmethod
+    def convert_data_format(self,target_format='binary'):
+        pass
 
     def coordinate_w_phenotype_data(self, phenotype, coord_phen=True):
         """
@@ -170,7 +185,7 @@ class AbstractGenotype(object):
             log.debug('Removed %d monomorphic SNPs out of %d SNPs' % (removed_num, total_num))
         return {'pd_indices_to_keep':pd_indices_to_keep, 'n_filtered_snps':removed_num}
 
-    def get_ibs_kinship_matrix(self, debug_filter=1, snp_dtype='int8', dtype='single'):
+    def get_ibs_kinship_matrix(self, debug_filter=1, snp_dtype='int8', dtype='single',chunk_size=None):
         """
         Calculate the IBS kinship matrix. 
         (un-scaled)
@@ -178,22 +193,34 @@ class AbstractGenotype(object):
         Currently it works only for binary kinship matrices.
         """
         log.debug('Starting kinship calculation')
-        snps = self.getSnps()
-        return kinship.calc_ibs_kinship(snps, snps_data_format=self.data_format, snp_dtype=snp_dtype,
-                                        dtype=dtype)
+        return kinship.calc_ibs_kinship(self,chunk_size=chunk_size)
 
-    def get_ibd_kinship_matrix(self, debug_filter=1, dtype='single'):
+    def get_ibd_kinship_matrix(self, debug_filter=1, dtype='single',chunk_size=None):
         log.debug('Starting IBD calculation')
-        snps = self.getSnps(debug_filter)
-        cov_mat = kinship.calc_ibd_kinship(snps, len(self.accessions), dtype=dtype)
+        return kinship.calc_ibd_kinship(self,chunk_size=chunk_size)
         log.debug('Finished calculating IBD kinship matrix')
         return cov_mat
 
    
 
-    def save_as_csv(self):
-        pass
-
+    def save_as_csv(self,csv_file):
+        log.info('Writing genotype to CSV file %s' % csv_file)
+        with open(csv_file,'w') as csvfile:
+            csv_writer = csv.writer(csvfile,delimiter=',')
+            header = ['Chromosome','Positions']
+            header.extend(self.accessions)
+            csv_writer.writerow(header) 
+            snp_iterator = self.get_snps_iterator()
+            chromosomes = self.chromosomes
+            positions = self.positions
+            num = len(positions)
+            for i,snp in enumerate(snp_iterator):
+                if i % (num / 10) == 0:
+                    log.info('Line %s/%s of Genotype written' % (i,num)) 
+                row =[chromosomes[i],positions[i]]
+                row.extend(snp)
+                csv_writer.writerow(row)
+        log.info('Finished writing genotype ')
 
     def save_as_hdf5(self, hdf5_file):
         log.info('Writing genotype to HDF5 file %s' %hdf5_file)
@@ -268,10 +295,7 @@ class Genotype(AbstractGenotype):
     def data_format(self):
         return self._data_format
 
-    def get_snps_iterator(self,chr=None,is_chunked=False):
-        for snp in self._snps:
-            yield snp
-
+   
     def get_snp_at(self,chr,position):
         chr_ix = self._chrs.index(chr)
         chr_start_ix = self.chr_regions[chr_ix][0]
@@ -282,7 +306,10 @@ class Genotype(AbstractGenotype):
     def accessions(self):
         return self._accessions
 
-    
+    @property
+    def snps(self):
+        return self._snps
+
     @property
     def positions(self):
         return self._positions
@@ -307,7 +334,92 @@ class Genotype(AbstractGenotype):
         self._snps = snps[snps_ix]
         self._positions = snps[snps_ix]
 
- 
+    def get_snps_iterator(self,chr=None,is_chunked=False,chunk_size=1000):
+        start = 0
+        end = None
+        if chr is not None:
+            chr_region = self.chr_regions[chr-1]
+            start = chr_region[0]
+            end = chr_region[1]
+        if is_chunked:
+            for i in xrange(start,end,chunk_size):
+                stop_i = min(i + chunk_size, end)
+                yield self._snps[i:stop_i]
+        else:
+            for snp in self._snps:
+                yield snp
+            
+
+    def convert_data_format(self,target_format='binary',reference_ecotype='6909'):
+        """
+        Converts the underlying raw data format to a binary one, i.e. A,C,G,T,NA,etc. are converted to 0,1,-1
+        """
+        log.info('Converting from %s to %s' % (self.data_format,target_format))
+        if self.data_format == target_format:
+            log.warning("Data appears to be already in %s format!" % target_format)
+        else:
+            if self.data_format == 'nucleotides' and target_format == 'binary':
+                self._convert_snps_to_binary(reference_ecotype = reference_ecotype)
+            else:
+                raise NotImplementedError
+
+    def _convert_snps_to_binary(self,reference_ecotype='6909'):
+        missingVal = 'NA'
+        decoder = {missingVal:-1} #Might cause errors somewhere???!!!
+        coding_fun = scipy.vectorize(lambda x: decoder[x], otypes=['int8'])
+
+        if reference_ecotype in self.accessions:
+            ref_i = self.accessions.index(reference_ecotype)
+        else:
+            ref_i = 0
+            log.warning("Given reference ecotype %s wasn't found, using %s as 0-reference." % \
+                    (reference_ecotype, self.accessions[ref_i]))
+        snps = []
+        num = len(self.positions)
+        positions = []
+        chr_region_removed_snps = [0] * len(self.chr_regions)
+        for snp_i, (snp, pos) in enumerate(itertools.izip(self._snps, self.positions)):
+            chr_region_ix,chr_region = self.get_chr_region_from_index(snp_i)
+            if snp_i % (num / 10) == 0:
+                log.info('Converted %s/%s of SNPs.' % (snp_i,num))
+            unique_nts = scipy.unique(snp).tolist()
+            if missingVal in unique_nts:
+                if len(unique_nts) != 3:
+                    chr_region_removed_snps[chr_region_ix] +=1 
+                    continue #Skipping non-binary SNP
+                else:
+                    unique_nts.remove(self.missingVal)
+            else:
+                if len(unique_nts) != 2:
+                    chr_region_removed_snps[chr_region_ix] +=1
+                    continue #Skipping non-binary SNP
+            if snp[ref_i] != missingVal:
+                ref_nt = snp[ref_i]
+                decoder[ref_nt] = 0
+                unique_nts.remove(ref_nt)
+                decoder[unique_nts[0]] = 1
+            else:
+                decoder[unique_nts[0]] = 0
+                decoder[unique_nts[1]] = 1
+            snps.append(coding_fun(snp))
+            positions.append(pos)
+        log.info('Removed %d non-binary SNPs out of %d, when converting to binary SNPs.'\
+            % (len(self.positions) - len(positions), len(self.positions)))
+        assert len(snps) == len(positions), 'Somthing odd with the lengths.'
+        chr_regions = self.chr_regions[:]
+        sum_removed_snps = 0
+        for i,num_snps in enumerate(chr_region_removed_snps):
+            sum_removed_snps +=num_snps
+            if i == 0:
+                chr_regions[0] = (0,chr_regions[0][1] - num_snps)
+            else:
+                chr_regions[i] = (chr_regions[i-1][1],chr_regions[i][1] - sum_removed_snps)
+        self._chr_regions = chr_regions
+
+        self._snps = snps
+        self._positions = positions
+        self._data_format = 'binary'
+   
 
     def filter_accessions_ix(self,indicesToKeep): 
         """
@@ -325,6 +437,7 @@ class Genotype(AbstractGenotype):
                 newSnp.append(snp[j])
             self.snps[i] = newSnp
         self.accessions = newAccessions
+        # TODO update chr_regions
         log.debug("Removed %d accessions, leaving %d in total." % (num_accessions - len(indicesToKeep), len(indicesToKeep)))
 
 
@@ -343,14 +456,18 @@ class HDF5Genotype(AbstractGenotype):
         return self.h5file['snps']
 
     @property
+    def snps(self):
+        return self.h5file['snps']
+
+    @property
     def data_format(self):
         return self.h5file['snps'].attrs['data_format']
 
     
     def get_snp_at(self,chr,position):
-        chr_ix = self._chrs.index(chr)
+        chr_ix = chr -1 
         chr_start_ix = self.chr_regions[chr_ix][0]
-        snp_ix = bisect.bisect(self._positions, position) - 1
+        snp_ix = bisect.bisect(self.positions, position) - 1
         return self.snps[snp_ix]
 
     @property
@@ -360,6 +477,8 @@ class HDF5Genotype(AbstractGenotype):
         else:
             return self.h5file['accessions'][self.filter_accessions]
 
+    def convert_data_format(self,target_format='binary'):
+        raise NotImplementedError
 
     def _get_snps_(self, start=0,end=None,chunk_size=1000): 
         """
@@ -382,7 +501,7 @@ class HDF5Genotype(AbstractGenotype):
                     snps_chunk = self.h5file['snps'][i:stop_i, self.filter_accessions]
                     yield snps_chunk[filter_chunk]
 
-    def get_snps_iterator(self,chr=None,is_chunked=False):
+    def get_snps_iterator(self,chr=None,is_chunked=False,chunk_size=1000):
         """
         Returns an generator containing a chunked generator. 
         If chr is passed the generator will only iterate over the specified chr
@@ -394,7 +513,7 @@ class HDF5Genotype(AbstractGenotype):
             chr_region = self.h5file['positions'].attrs['chr_regions'][chr-1]
             start = chr_region[0]
             end = chr_region[1]
-        for snp_chunk in self._get_snps_(start=start,end=end):
+        for snp_chunk in self._get_snps_(start=start,end=end,chunk_size=chunk_size):
             if is_chunked:
                 yield snp_chunk
             else:

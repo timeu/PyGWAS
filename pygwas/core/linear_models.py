@@ -1214,7 +1214,6 @@ class LinearMixedModel(LinearModel):
             qr - Uses QR decomposition to speed up regression with many co-factors.
             
         """
-        print num_snps
         snps = genotype.get_snps_iterator(is_chunked=True)
         dtype = 'single'
         q = 1  # Single SNP is being tested

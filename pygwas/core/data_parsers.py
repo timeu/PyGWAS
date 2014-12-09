@@ -72,7 +72,7 @@ def parse_genotype_csv_file(csv_file,format='binary', missingVal='NA'):
         f.seek(0)
         reader = csv.reader(f, dialect)
         header = reader.next()
-        if header[0] != 'Chromosome' or header[1] != 'Positions': 
+        if header[0] != 'Chromosome' or (header[1] != 'Positions' and header[1] != 'Position'): 
             raise Exception('First two columns must be in form  Chromosome, Positions')
         dtype = _get_dtype_from_format(format)
         accessions = map(lambda x: x.strip(),header[2:])

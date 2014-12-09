@@ -10,24 +10,25 @@ import itertools as it
 
 log = logging.getLogger(__name__)
 
-def calc_ibs_kinship(snps, snps_data_format='binary', snp_dtype='int8', dtype='single',
-                     chunk_size=None):
+def calc_ibs_kinship(genotype, snp_dtype='int8', dtype='single',chunk_size=None):
     """
     Calculates IBS kinship
     
     data_format: two are currently supported, 'binary', and 'diploid_int'
     """
-    num_snps = len(snps)
+    num_snps = genotype.num_snps
     log.debug('Allocating K matrix')
-    num_lines = len(snps[0])
+    num_lines = len(genotype.accessions)
     if chunk_size == None:
         chunk_size = num_lines
     k_mat = sp.zeros((num_lines, num_lines), dtype=dtype)
     log.debug('Starting calculation')
     chunk_i = 0
-    for snp_i in range(0, num_snps, chunk_size): #FINISH!!!
+    snps = genotype.get_snps_iterator(is_chunked=True,chunk_size=chunk_size)
+    snps_data_format = genotype.data_format
+    for snps_chunk in snps:
         chunk_i += 1
-        snps_array = sp.array(snps[snp_i:snp_i + chunk_size], dtype=snp_dtype)
+        snps_array = sp.array(snps_chunk, dtype=snp_dtype)
         snps_array = snps_array.T
         if snps_data_format == 'diploid_int':
             for i in range(num_lines):
@@ -43,8 +44,7 @@ def calc_ibs_kinship(snps, snps_data_format='binary', snp_dtype='int8', dtype='s
             k_mat = k_mat + sm * sm.T
         else:
             raise NotImplementedError
-        sys.stdout.write('\b\b\b\b\b\b\b%0.2f%%' % (100.0 * (min(1, ((chunk_i + 1.0) * chunk_size) / num_snps))))
-        sys.stdout.flush()
+        log.debug('%0.2f%%' % (100.0 * (min(1, ((chunk_i + 1.0) * chunk_size) / num_snps))))
     if snps_data_format == 'diploid_int':
         k_mat = k_mat / float(num_snps) + sp.eye(num_lines)
     elif snps_data_format == 'binary':
@@ -52,18 +52,20 @@ def calc_ibs_kinship(snps, snps_data_format='binary', snp_dtype='int8', dtype='s
     return k_mat
 
 
-def calc_ibd_kinship(snps, dtype='single'):
-    num_snps = len(snps)
-    n_indivs = len(snps[0])
+def calc_ibd_kinship(genotype, dtype='single',chunk_size=None):
+    num_snps = genotype.num_snps
+    num_lines = len(genotype.accessions)
+    if chunk_size == None:
+        chunk_size = num_lines
     k_mat = sp.zeros((n_indivs, n_indivs), dtype=dtype)
-    for chunk_i, i in enumerate(range(0, num_snps, n_indivs)):
-        snps_array = sp.array(snps[i:i + n_indivs])
+    snps = genotype.get_snps_iterator(is_chunked=True,chunk_size=chunk_size)
+    for snps_chunk in snps:
+        snps_array = sp.array(snps_chunk)
         snps_array = snps_array.T
         norm_snps_array = (snps_array - sp.mean(snps_array, 0)) / sp.std(snps_array, 0)
         x = sp.mat(norm_snps_array.T)
         k_mat += x.T * x
-        sys.stdout.write('\b\b\b\b\b\b\b%0.2f%%' % (100.0 * (min(1, ((chunk_i + 1.0) * n_indivs) / num_snps))))
-        sys.stdout.flush()
+        log.debug('%0.2f%%' % (100.0 * (min(1, ((chunk_i + 1.0) * chunk_size) / num_snps))))
     k_mat = k_mat / float(num_snps)
     return k_mat
 
@@ -167,63 +169,4 @@ def save_kinship_in_text_format(filename, k, accessions):
 
 
 
-
-def get_kinship(call_method_id=75, data_format='binary', method='ibs', n_removed_snps=None, remain_accessions=None,
-                scaled=True, min_mac=5, sd=None, debug_filter=1, return_accessions=False):
-    """
-    Loads and processes the kinship matrix
-    """
-    import dataParsers as dp
-    import env
-    if method == 'ibd':
-        if sd != None:
-            k = sd.get_ibd_kinship_matrix()
-            if scaled:
-                k = scale_k(k)
-            return k
-        else:
-            raise NotImplementedError('Currently only IBS kinship matrices are supported')
-    elif method == 'ibs':
-        if call_method_id:
-            file_prefix = '%s%d/kinship_%s_%s' % (env.env['cm_dir'], call_method_id, method, data_format)
-            kinship_file = file_prefix + '_mac%d.h5py' % min_mac
-            if os.path.isfile(kinship_file):
-                log.debug('Found kinship file: %s' % kinship_file)
-                d = load_kinship_from_file(kinship_file, scaled=False)
-                k = d['k']
-                k_accessions = d['accessions']
-                n_snps = d['n_snps']
-            else:
-                log.debug("Didn't find kinship file: %s, now generating one.." % kinship_file)
-                try:
-                    sd = dp.load_snps_call_method(call_method_id=call_method_id, data_format=data_format, min_mac=min_mac,
-                                               debug_filter=debug_filter)
-                except Exception:
-                    if sd != None:
-                        k = sd.get_ibs_kinship_matrix()
-                    if scaled:
-                        k = scale_k(k)
-                    return k
-
-                k = sd.get_ibs_kinship_matrix()
-                k_accessions = sd.accessions
-                n_snps = sd.num_snps()
-                save_kinship_to_file(kinship_file, k, sd.accessions, n_snps)
-            if n_removed_snps != None and remain_accessions != None:
-                k = update_k_monomorphic(n_removed_snps, k, k_accessions, n_snps, remain_accessions,
-                                                 kinship_type='ibs', dtype='single')
-                if scaled:
-                    k = scale_k(k)
-                return k
-            else:
-                if scaled:
-                    k = scale_k(k)
-                if return_accessions:
-                    return k, k_accessions
-                else:
-                    return k
-
-    else:
-        log.error('Method %s is not implemented' % method)
-        raise NotImplementedError
 
