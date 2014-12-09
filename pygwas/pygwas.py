@@ -10,7 +10,7 @@
     :license: license_name, see LICENSE for more details
 """
 
-from . import __version__,__updated__,__date__
+from __init__ import __version__,__updated__,__date__
 import argparse
 from core import kinship
 from core import gwas
