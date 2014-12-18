@@ -1,3 +1,9 @@
+0.1.4
+--
+* Improved performance of save_as_csv
+* Improvied performance of snp_iterator and filter_non_binary function
+* Some Bugfixes
+
 0.1.3
 --
 * Fixed the setup (include files)

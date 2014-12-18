@@ -203,23 +203,24 @@ class AbstractGenotype(object):
 
    
 
-    def save_as_csv(self,csv_file):
+    def save_as_csv(self,csv_file,chunk_size=1000):
         log.info('Writing genotype to CSV file %s' % csv_file)
         with open(csv_file,'w') as csvfile:
             csv_writer = csv.writer(csvfile,delimiter=',')
             header = ['Chromosome','Positions']
             header.extend(self.accessions)
             csv_writer.writerow(header) 
-            snp_iterator = self.get_snps_iterator()
+            snp_iterator = self.get_snps_iterator(is_chunked=True,chunk_size=chunk_size)
             chromosomes = self.chromosomes
             positions = self.positions
             num = len(positions)
-            for i,snp in enumerate(snp_iterator):
-                if i % (num / 10) == 0:
-                    log.info('Line %s/%s of Genotype written' % (i,num)) 
-                row =[chromosomes[i],positions[i]]
-                row.extend(snp)
-                csv_writer.writerow(row)
+            log_iteration_count = num/(chunk_size*10)
+            for i,snps in enumerate(snp_iterator):
+                current_ix = i* chunk_size
+                if i % log_iteration_count == 0:
+                    log.info('Line %s/%s of Genotype written' % (current_ix,num)) 
+                rows = numpy.hstack((numpy.asarray(zip(chromosomes[current_ix:current_ix+chunk_size],positions[current_ix:current_ix+chunk_size])),snps))
+                csv_writer.writerows(rows.tolist())
         log.info('Finished writing genotype ')
 
     def save_as_hdf5(self, hdf5_file):
@@ -250,13 +251,14 @@ class AbstractGenotype(object):
         snps_ix = []
         num_snps = self.num_snps
         for i,snps in enumerate(self.get_snps_iterator()):
-            bc = scipy.bincount(snps)
-            if len(bc) > 1:
+            bc = scipy.unique(snps)
+            if len(bc) == 1:
                 snps_ix.append(i)
         numRemoved = len(self.positions) - len(snps_ix)
         self.filter_snps_ix(snps_ix)
         log.info("Removed %d monomoprhic SNPs, leaving %d SNPs in total." % (numRemoved, num_snps))
         return (num_snps,numRemoved)
+
 
     def filter_non_binary(self):
         """
@@ -264,10 +266,12 @@ class AbstractGenotype(object):
         """
         num_snps = self.num_snps
         snps_ix = []
-        for i,snps in enumerate(self.get_snps_iterator()):
-            bc = scipy.unique(snps)
-            if len(bc) != 2:
-                snps_ix.append(i)
+        num_accessions = len(self.accessions)      
+        # Faster (2.2 ms) than doing numpy.bincount (91.1ms per loop) 
+        # TODO chunk size is hardcoded
+        for i,snps in enumerate(self.get_snps_iterator(is_chunked=True)):
+            sm = numpy.sum(snps,axis=1)
+            snps_ix.extend(numpy.where( (sm == 0) | (sm == num_accessions))[0]+i*1000)
         numRemoved = len(snps_ix)
         self.filter_snps_ix(snps_ix)
         log.info("Removed %d non-binary SNPs, leaving %d SNPs in total." % (numRemoved, self.num_snps))
@@ -495,10 +499,12 @@ class HDF5Genotype(AbstractGenotype):
                     yield self.h5file['snps'][self.filter_snps[i:stop_i],:]
             else:
                 if self.filter_snps is None:
-                    yield self.h5file['snps'][i:stop_i,self.filter_accessions]
+                    # first read the entire row and then filter columns (7.91ms vs 94.3ms)
+                    yield self.h5file['snps'][i:stop_i][:,self.filter_accessions]
                 else:
                     filter_chunk = self.filter_snps[i:stop_i]
-                    snps_chunk = self.h5file['snps'][i:stop_i, self.filter_accessions]
+                    # first read the entire row and then filter columns (7.91ms vs 94.3ms)
+                    snps_chunk = self.h5file['snps'][i:stop_i][:,self.filter_accessions]
                     yield snps_chunk[filter_chunk]
 
     def get_snps_iterator(self,chr=None,is_chunked=False,chunk_size=1000):

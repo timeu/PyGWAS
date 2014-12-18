@@ -155,8 +155,6 @@ def lin_reg_step(phen_vals, sd, cof_chr_pos_list, progress_file_writer=None, plo
 
     
     log.info('Looking up cofactors')
-    import pdb
-    pdb.set_trace()
     cof_indices,cof_snps  = sd.get_snps_from_pos(cof_chr_pos_list)
     lm.set_factors(cof_snps)
 

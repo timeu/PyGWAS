@@ -221,7 +221,7 @@ class LinearModel(object):
                 
                 if (i+1) % (num_snps / 10) == 0:
                     perc = 100.0 * i / num_snps
-                    log.info('Performing regression (completed:%d %%)' % perc,extra={progress:25 + 80*perc/100})
+                    log.info('Performing regression (completed:%d %%)' % perc,extra={'progress':25 + 80*perc/100})
                 if not progress_file_writer == None:
                    progress_file_writer.update_progress_bar(task_status='Performing regression (completed: %d %%)' % (100.0 * i / num_snps))
                 i += 1
