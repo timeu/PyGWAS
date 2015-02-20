@@ -1,3 +1,15 @@
+0.1.7
+--
+* Some Bugfixes when attribute (max_score, etc) are named differently
+* Deal with GWAS results that don't have macs dataset
+
+0.1.6
+--
+* Added dependency to matplitlib > 1.4.3 to fix plotting issue
+0.1.5
+--
+* Added plotting module for plotting manhattan plots and also created plotter.py console script
+
 0.1.4
 --
 * Improved performance of save_as_csv

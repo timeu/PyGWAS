@@ -37,10 +37,12 @@ setup(
         "numpy >=1.6.1",
         "scipy >=0.13.0",
         "h5py >=2.1.3",
+        "matplotlib >= 1.4.3"
     ],
     entry_points={
         'console_scripts': [
             'pygwas=pygwas.__main__:main',
+            'plotter=pygwas.plotter:main'
         ],
     },
 )
