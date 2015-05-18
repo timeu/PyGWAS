@@ -20,6 +20,8 @@ from core import statistics as stats
 from core import phenotype
 from core import genotype
 from core.result import GWASResult
+from core import result
+from core import plotting
 import os
 import sys
 
@@ -51,20 +53,40 @@ LOGGING = {
     },
 }
 
+SUPPORTED_FILE_EXT =  ('.hdf5','.csv')
+
 logging.config.dictConfig(LOGGING)
 log = logging.getLogger()
 
 def get_parser(program_license,program_version_message):
     parser = argparse.ArgumentParser(description=program_license)
-    parser.add_argument("-t", "--transformation", dest="transformation", help="Apply a transformation to the data. Default[None]", choices=["log", "sqrt", "exp", "sqr", "arcsin_sqrt", "box_cox"])
-    parser.add_argument("-a", "--analysis_method", dest="analysis_method", help="analyis method to use",required=True,choices=["lm", "emma", "emmax", "kw", "ft", "emmax_anova", "lm_anova", "emmax_step", "lm_step","loc_glob_mm","amm"])
-    parser.add_argument("-g", "--genotype", dest="genotype", help="genotype dataset to be used in the GWAS analysis (run with option -l to display list of available genotype datasets)", required=True, type=int,metavar="INTEGER" )
-    parser.add_argument("-f", "--genotype_folder", dest="genotype_folder", help="Folder where the genotypes are located",metavar="FOLDER")
-
-    parser.add_argument("-k", "--kinship", dest="kinship", help="Specify the file containing the kinship matrix. (otherwise default file is used or it's generated.)", metavar="FILE" )
-    parser.add_argument("-o", "--output_file", dest="outputfile", help="Name of the output file")
     parser.add_argument('-V', '--version', action='version', version=program_version_message)
-    parser.add_argument(dest="file", help="csv file containing phenotype values", metavar="FILE")
+    subparsers = parser.add_subparsers(title='subcommands',description='Choose a command to run',help='Following commands are supported')
+    analysis_parser = subparsers.add_parser('run',help='Run a GWAS analysis')
+    
+    analysis_parser.add_argument("-t", "--transformation", dest="transformation", help="Apply a transformation to the data. Default[None]", choices=["log", "sqrt", "exp", "sqr", "arcsin_sqrt", "box_cox"])
+    analysis_parser.add_argument("-a", "--analysis_method", dest="analysis_method", help="analyis method to use",required=True,choices=["lm", "emma", "emmax", "kw", "ft", "emmax_anova", "lm_anova", "emmax_step", "lm_step","loc_glob_mm","amm"])
+    analysis_parser.add_argument("-g", "--genotype", dest="genotype", help="genotype dataset to be used in the GWAS analysis (run with option -l to display list of available genotype datasets)", required=True, type=int,metavar="INTEGER" )
+    analysis_parser.add_argument("-f", "--genotype_folder", dest="genotype_folder", help="Folder where the genotypes are located",metavar="FOLDER")
+
+    analysis_parser.add_argument("-k", "--kinship", dest="kinship", help="Specify the file containing the kinship matrix. (otherwise default file is used or it's generated.)", metavar="FILE" )
+    analysis_parser.add_argument("-o", "--output_file", dest="outputfile", help="Name of the output file")
+    analysis_parser.add_argument(dest="file", help="csv file containing phenotype values", metavar="FILE")
+    analysis_parser.set_defaults(func=run)
+    
+    convert_parser = subparsers.add_parser('convert',help='Convert from HDF5 to CSV and the other way round')
+    convert_parser.add_argument("-i", "--input_file", dest="inputfile", help="Name of the input file",required=True)
+    convert_parser.add_argument("-o", "--output_file", dest="outputfile", help="Name of the output file",required=True)
+    convert_parser.set_defaults(func=convert)
+
+    plotter_parser = subparsers.add_parser('plot',help='Plot a GWAS result')
+    plotter_parser.add_argument('-c','--chr',dest='chr',
+	 help='Chromosome to plot. If not specified prints all chromosomes (Default:None)',
+	choices=['chr1','chr2','chr3','chr4','chr5'],default=None)
+    plotter_parser.add_argument('-m','--macs',dest='macs',default=15,type=int,help='Minor Allele Count filter (Default: 15)')
+    plotter_parser.add_argument("-o",'--output',dest='output',required=True,help='The output image file')
+    plotter_parser.add_argument(dest="file", help="GWAS result file (.hdf5 or .csv)", metavar="FILE")
+    plotter_parser.set_defaults(func=plot)
     return parser
 
 
@@ -91,8 +113,7 @@ USAGE
     parser = get_parser(program_license,program_version_message)
     args = vars(parser.parse_args())
     try:
-        result = perform_gwas(args['file'],args['analysis_method'], args['genotype_folder'],args['genotype'],args['transformation'],args['kinship'])
-        result.save_as_hdf5(args['outputfile'])
+        args['func'](args)
         return 0
     except KeyboardInterrupt:
         ### handle keyboard interrupt ###
@@ -100,6 +121,51 @@ USAGE
     except Exception, e:
         log.exception(e)
         return 2
+
+
+def convert(args):
+    
+    _,input_ext = os.path.splitext(args['inputfile'])
+    _,output_ext = os.path.splitext(args['outputfile'])
+    if input_ext == output_ext: 
+        raise Exception('use different file extension for input (%s) and output file (%s)' % (input_ext,output_ext))
+    if input_ext not in SUPPORTED_FILE_EXT:
+        raise Exception('The input file must have one of the supported extensions: %s' % SUPPORTED_FILE_EXT)
+    if output_ext not in SUPPORTED_FILE_EXT:
+        raise Exception('The output file must have one of the supported extensions: (%s)' % ', '.join(SUPPORTED_FILE_EXT))
+    gwas_result = None
+    if input_ext == '.csv':
+        gwas_result = result.load_from_csv(args['inputfile'])
+        gwas_result.save_as_hdf5(args['outputfile'])
+    else:
+        gwas_result = result.load_from_hdf5(args['inputfile'])
+        gwas_result.save_as_csv(args['outputfile'])
+    
+
+def plot(args):
+    _,ext = os.path.splitext(args['file'])
+    if ext not in SUPPORTED_FILE_EXT:
+        raise Exception('The input file must have one of the supported extensions: %s' % supported_extensions)
+    chrs = None
+    if 'chr' in args and args['chr'] is not None and args['chr'] != '':
+        chrs = [args['chr']]
+    gwas_result = None
+    if ext == '.hdf5':
+        gwas_result = result.load_from_hdf5(args['file'])
+    else:
+        gwas_result = result.load_from_csv(args['file'])
+    plotting.plot_gwas_result(gwas_result,args['output'],chrs,args['macs'])
+   
+
+def run(args):
+    _,ext = os.path.splitext(args['outputfile'])
+    if ext not in SUPPORTED_FILE_EXT:
+        raise Exception('The output file must have one of the supported extensions: %s' % supported_extensions)
+    gwas_result = perform_gwas(args['file'],args['analysis_method'], args['genotype_folder'],args['genotype'],args['transformation'],args['kinship'])
+    if ext == '.hdf5':
+        gwas_result.save_as_hdf5(args['outputfile'])
+    else: 
+        gwas_result.save_as_csv(args['outputfile'])
 
 
 def perform_gwas(phenotype_file,analysis_method,genotype_folder,genotype,transformation=None,kinshipFile=None):
@@ -143,7 +209,7 @@ def perform_gwas(phenotype_file,analysis_method,genotype_folder,genotype,transfo
                 if len(betas) > 1:
                     additional_columns['beta1'] = betas[1]
     
-    return GWASResult(pvals,None,analysis_method,transformation,genotypeData,additional_columns)
+    return GWASResult(genotypeData.chromosomes,genotypeData.positions,pvals,genotypeData.get_mafs(),method = analysis_method,transformation = transformation,additional_columns = additional_columns)
 
 
 

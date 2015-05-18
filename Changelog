@@ -1,3 +1,9 @@
+0.1.8
+--
+* Support for CSV files added.
+* ArgumentParser supports now 3 sub commands (plot, convert and run)
+* Plotting works with both CSV and HDF5 files
+
 0.1.7
 --
 * Some Bugfixes when attribute (max_score, etc) are named differently

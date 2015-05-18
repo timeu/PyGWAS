@@ -5,67 +5,162 @@ import math
 import h5py
 import numpy
 
+
 log = logging.getLogger(__name__)
+
+
+def load_from_hdf5(filename):
+    f = h5py.File(filename,'r') 
+    quantiles_dict = {}
+    stats =  {}
+    quantiles_dict['exp_quantiles'] = f['quantiles']['quantiles'][:,0].tolist()
+    quantiles_dict['quantiles'] = f['quantiles']['quantiles'][:,1].tolist()
+    quantiles_dict['exp_log_quantiles'] = f['quantiles']['log_quantiles'][:,0].tolist()
+    quantiles_dict['log_quantiles'] = f['quantiles']['log_quantiles'][:,1].tolist()
+    stats['quantiles_dict'] = quantiles_dict
+    pvals_group = f['pvalues']
+    method = pvals_group.attrs['analysis_method']
+    transformation = pvals_group.attrs['transformation']
+    stats['ks_stats'] = {'D':pvals_group.attrs['ks_stat']}
+    stats['ks_stats']['p_val'] = pvals_group.attrs['ks_pval']
+    stats['med_pval'] =  pvals_group.attrs['med_pval'] 
+    stats['bh_thres_d'] = {'thes_pval': math.pow(10,-pvals_group.attrs['bh_thres'])}
+    chromosomes = []
+    positions = []
+    scores = []
+    mafs = []
+    macs = []
+    additional_columns = {}
+    for chr in range(1,6):
+        chr_group = pvals_group['chr%s' % chr]
+        chromosomes.extend([chr]*len(chr_group['positions']))
+        positions.extend(chr_group['positions'][:].tolist())
+        scores.extend(chr_group['scores'][:].tolist())
+        mafs.extend(chr_group['mafs'][:].tolist())
+        macs.extend(chr_group['macs'][:].tolist())
+        for i,key in enumerate(chr_group.keys()):
+            if key not in ('positions','scores','mafs','macs'):
+                values = chr_group[key][:].tolist()
+                if key not in additional_columns:
+                    additional_columns[key] = values
+                else:
+                    additional_columns[key].extend(values)
+    f.close()
+    scores = map(lambda x:math.pow(10,-1*x), scores)
+    maf_dict = {'mafs':mafs,'macs':macs}
+    return GWASResult(chromosomes,positions,scores,maf_dict,method,transformation,stats=stats,additional_columns=additional_columns)
+    
+
+def load_from_csv(filename):
+    chromosomes =  []
+    positions =  []
+    pvals =  []
+    mafs = []
+    macs = []
+    additional_columns = {}
+    with open(filename,'r') as f:
+        header = f.readline().rstrip()
+        add_header = header.split(",")[5:]
+        for key in add_header:
+            additional_columns[key] = []
+        for row in f:
+            fields = row.rstrip().split(",")
+            chromosomes.append(int(fields[0]))
+            positions.append(int(fields[1]))
+            pvals.append(float(fields[2]))
+            mafs.append(float(fields[3]))
+            macs.append(int(fields[4]))
+            if len(add_header) > 0:
+                for i,key in enumerate(add_header):
+                    additional_columns[key].append(float(fields[(5+i)]))
+    return GWASResult(chromosomes,positions,pvals,{'mafs':mafs,'macs':macs},additional_columns = additional_columns)
+            
+         
+
 
 class GWASResult(object):
 
-
-    def __init__(self,pvals,stats,method,transformation,genotype,additional_columns = None):
+    
+    def __init__(self,chromosomes,positions,pvals,maf_dict,method = 'N/A',transformation = None,stats = None,additional_columns = None,step_stats = None):
         self.pvals = pvals
-        self.stats = stats
         self.method = method
         self.transformation = transformation
-        self.genotype = genotype
+        self.chromosomes = chromosomes
+        self.positions = positions
+        self.stats = stats
+        self.maf_dict = maf_dict
         self.additional_columns = additional_columns
-        self._calculate_stats_()
+        self.step_stats = step_stats
+        self.bonferroni_threshold = -math.log10(0.05 / len(pvals))
+        self.min_pval = min(pvals)
+        if not self.stats:
+            self._calculate_stats_()
+
 
 
     def _calculate_stats_(self):
         log.info('Calculating Benjamini-Hochberg threshold',extra={'progress':90})
         #Calculate Benjamini-Hochberg threshold
-        self.bh_thres_d = mtcorr.get_bhy_thres(self.pvals, fdr_thres=0.05)
+        self.stats = {}
+        self.stats['bh_thres_d'] = mtcorr.get_bhy_thres(self.pvals, fdr_thres=0.05)
         #Calculate Median p-value
-        self.med_pval = stats.calc_median(self.pvals)
+        self.stats['med_pval'] = stats.calc_median(self.pvals)
         #Calculate the Kolmogorov-Smirnov statistic
-        self.ks_stats = stats.calc_ks_stats(self.pvals)
-        self.quantiles_dict = stats.calculate_qqplot_data(self.pvals)
+        self.stats['ks_stats'] = stats.calc_ks_stats(self.pvals)
+        self.stats['quantiles_dict'] = stats.calculate_qqplot_data(self.pvals)
+        
 
     
       
-    
+    def save_as_csv(self,csv_file):
+        data = numpy.array(zip(self.chromosomes, self.positions, self.pvals, self.maf_dict['mafs'], self.maf_dict['macs'],*self.additional_columns.values()))
+        data =data[numpy.lexsort((data[:,1],data[:,0]))]
+        additional_column_headers = self.additional_columns.keys()
+        header = ['chromosomes','positions','pvals','mafs','macs']
+        header.extend(additional_column_headers)
+        with open(csv_file,'w') as f:
+            f.write(','.join(header)+"\n")
+            for row in data:
+               rows_to_write = row.tolist()
+               rows_to_write[0] = int(rows_to_write[0])
+               rows_to_write[1] = int(rows_to_write[1])
+               rows_to_write[4] = int(rows_to_write[4])
+               f.write(','.join(map(str,rows_to_write))+"\n")      
+        
+        
     
     def save_as_hdf5(self,hdf5_file):
-        positions = self.genotype.positions
-        chromosomes = self.genotype.chromosomes
-        maf_dict = self.genotype.get_mafs()
+        positions = self.positions
+        chromosomes = self.chromosomes
+        maf_dict = self.maf_dict
         scores = map(lambda x:-math.log10(x), self.pvals)
-
+        quantiles_dict = self.stats['quantiles_dict']
         f = h5py.File(hdf5_file,'w') 
 
         # store quantiles
         quant_group = f.create_group('quantiles')
-        quantiles_array = zip(self.quantiles_dict['exp_quantiles'],self.quantiles_dict['quantiles'])
-        log_quantiles_array = zip(self.quantiles_dict['exp_log_quantiles'],self.quantiles_dict['log_quantiles'])
-        quant_group.create_dataset('quantiles',(len(self.quantiles_dict['quantiles']), 2),'f8',data=quantiles_array)
-        quant_group.create_dataset('log_quantiles',(len(self.quantiles_dict['log_quantiles']), 2),'f8',data=log_quantiles_array)
+        quantiles_array = zip(quantiles_dict['exp_quantiles'],quantiles_dict['quantiles'])
+        log_quantiles_array = zip(quantiles_dict['exp_log_quantiles'],quantiles_dict['log_quantiles'])
+        quant_group.create_dataset('quantiles',(len(quantiles_dict['quantiles']), 2),'f8',data=quantiles_array)
+        quant_group.create_dataset('log_quantiles',(len(quantiles_dict['log_quantiles']), 2),'f8',data=log_quantiles_array)
         
         #store pvalues
         pvals_group = f.create_group('pvalues')
         pvals_group.attrs['numberOfSNPs'] = len(scores)
         pvals_group.attrs['max_score'] = max(scores)
-        pvals_group.attrs['analysis_method'] = self.method
+        if self.method is not None:
+            pvals_group.attrs['analysis_method'] = self.method
         transformation = "raw"
         if self.transformation is not None:
             transformation = self.transformation
         pvals_group.attrs['transformation'] = transformation
-        pvals_group.attrs['bonferroni_threshold'] = -math.log10(0.05 / len(scores))
-        pvals_group.attrs['ks_stat'] = self.ks_stats['D']
-        pvals_group.attrs['ks_pval'] = self.ks_stats['p_val']
-        pvals_group.attrs['med_pval'] = self.med_pval
-        pvals_group.attrs['bh_thres'] =-math.log10(self.bh_thres_d['thes_pval'])
+        pvals_group.attrs['bonferroni_threshold'] = self.bonferroni_threshold
+        pvals_group.attrs['ks_stat'] = self.stats['ks_stats']['D']
+        pvals_group.attrs['ks_pval'] = self.stats['ks_stats']['p_val']
+        pvals_group.attrs['med_pval'] = self.stats['med_pval']
+        pvals_group.attrs['bh_thres'] =-math.log10(self.stats['bh_thres_d']['thes_pval'])
 
         data = numpy.array(zip(chromosomes, positions, scores, maf_dict['mafs'], maf_dict['macs'],*self.additional_columns.values()))
-        
         for chr in range(1,6):
             chr_group = pvals_group.create_group('chr%s' % chr)
             chr_data = data[numpy.where(data[:,0] == chr)]

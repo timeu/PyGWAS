@@ -41,8 +41,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'pygwas=pygwas.__main__:main',
-            'plotter=pygwas.plotter:main'
+            'pygwas=pygwas.__main__:main'
         ],
     },
 )
