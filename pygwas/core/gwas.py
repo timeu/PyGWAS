@@ -209,7 +209,15 @@ def lin_reg_step(phen_vals, sd, cof_chr_pos_list, progress_file_writer=None, plo
     return {'stats':step_dict, 'res':r,'cof_chrom_pos_pval_list':cof_chrom_pos_pval_list}
 
 
+def calculate_pseudo_heritability(phen_vals,K):
+    """
+    Retrieve pseudo heritability for phenotype
 
+    """
+    lmm = LinearMixedModel(phen_vals)
+    lmm.add_random_effect(K)
+    reml_dict = lmm.get_REML()
+    return reml_dict['pseudo_heritability']
 
 
 def emmax_step(phen_vals, genotype, K, cof_chr_pos_list, eig_L=None, eig_R=None, progress_file_writer=None, plot_prefix=None,

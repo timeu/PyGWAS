@@ -3,6 +3,7 @@ A container for functions which aim to analyze or process gwas results, for some
 """
 
 import scipy as sp
+from scipy import stats
 import logging
 
 log = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ def _estAreaBetweenCurves_(quantiles, expQuantiles):
     return area
 
 def calc_ks_stats(scores, exp_scores=None):
-    from scipy import stats
+
     if exp_scores:
         (D, p_val) = stats.ks_2samp(scores, exp_scores)
     else:
@@ -40,7 +41,13 @@ def _getExpectedPvalueQuantiles_(numQuantiles):
     return quantiles
 
 
-
+def calculate_sp_pval(phen_vals):
+    r = stats.shapiro(phen_vals)
+    if sp.isfinite(r[0]):
+        sp_pval = r[1]
+    else:
+        sp_pval = 0.0
+    return sp_pval
 
 
 def get_log_quantiles(scores, num_dots=1000, max_val=5):
