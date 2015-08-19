@@ -170,6 +170,7 @@ def calculate_stats(args):
         statistics['shapiro'] = stats.calculate_sp_pval(phen_vals)
     else: raise Exception('%s not supported' % stat_type)
     print statistics
+    return statistics
 
 
 def convert(args):
