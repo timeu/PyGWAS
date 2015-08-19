@@ -1,3 +1,9 @@
+0.1.9
+--
+* Support for statistics (pseudo_heritability and shapiro wilks) added
+* Bugfix regarding genotype.get_snp_at and genotype.get_snps_from_pos added
+* Initial unit tests added
+
 0.1.8
 --
 * Support for CSV files added.
