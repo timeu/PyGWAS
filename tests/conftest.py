@@ -13,14 +13,9 @@ def pytest_runtest_setup(item):
 slow = pytest.mark.slow
 resource_path = path.join(path.dirname(__file__), 'res')
 
-@pytest.fixture(scope='module',params=["hdf5", slow("csv")])
-def geno(request):
-    if request.param == 'hdf5':
-        return genotype.load_hdf5_genotype_data('%s/all_chromosomes_binary.hdf5' %resource_path)
-    elif request.param == 'csv':
-        return genotype.load_csv_genotype_data('%s/all_chromosomes_binary.csv' % resource_path)
-    else:
-        raise Exception('not supported')
+@pytest.fixture
+def geno():
+    return genotype.load_hdf5_genotype_data('%s/all_chromosomes_binary.hdf5' %resource_path)
 
 
 @pytest.fixture
