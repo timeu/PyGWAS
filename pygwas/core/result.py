@@ -31,9 +31,11 @@ def load_from_hdf5(filename):
     mafs = []
     macs = []
     additional_columns = {}
-    for chr in range(1,6):
-        chr_group = pvals_group['chr%s' % chr]
-        chromosomes.extend([chr]*len(chr_group['positions']))
+    chrs = f['pvalues'].keys()
+    
+    for ix,chr in enumerate(chrs):
+        chr_group = pvals_group[chr]
+        chromosomes.extend([ix+1]*len(chr_group['positions']))
         positions.extend(chr_group['positions'][:].tolist())
         scores.extend(chr_group['scores'][:].tolist())
         mafs.extend(chr_group['mafs'][:].tolist())
@@ -48,7 +50,7 @@ def load_from_hdf5(filename):
     f.close()
     scores = map(lambda x:math.pow(10,-1*x), scores)
     maf_dict = {'mafs':mafs,'macs':macs}
-    return GWASResult(chromosomes,positions,scores,maf_dict,method,transformation,stats=stats,additional_columns=additional_columns)
+    return GWASResult(chrs,chromosomes,positions,scores,maf_dict,method,transformation,stats=stats,additional_columns=additional_columns)
     
 
 def load_from_csv(filename):
@@ -81,10 +83,11 @@ def load_from_csv(filename):
 class GWASResult(object):
 
     
-    def __init__(self,chromosomes,positions,pvals,maf_dict,method = 'N/A',transformation = None,stats = None,additional_columns = None,step_stats = None):
+    def __init__(self,chrs,chromosomes,positions,pvals,maf_dict,method = 'N/A',transformation = None,stats = None,additional_columns = None,step_stats = None):
         self.pvals = pvals
         self.method = method
         self.transformation = transformation
+        self.chrs = chrs
         self.chromosomes = chromosomes
         self.positions = positions
         self.stats = stats
@@ -161,9 +164,9 @@ class GWASResult(object):
         pvals_group.attrs['bh_thres'] =-math.log10(self.stats['bh_thres_d']['thes_pval'])
 
         data = numpy.array(zip(chromosomes, positions, scores, maf_dict['mafs'], maf_dict['macs'],*self.additional_columns.values()))
-        for chr in range(1,6):
+        for ix,chr in enumerate(self.chrs):
             chr_group = pvals_group.create_group('chr%s' % chr)
-            chr_data = data[numpy.where(data[:,0] == chr)]
+            chr_data = data[numpy.where(data[:,0] == (ix+1))]
             chr_data =chr_data[chr_data[:,2].argsort()[::-1]]
             positions = chr_data[:,1]
             chr_group.create_dataset('positions',(len(positions),),'i4',data=positions)

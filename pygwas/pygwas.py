@@ -259,7 +259,7 @@ def perform_gwas(phenotype_file,analysis_method,genotype_folder,genotype,transfo
                 if len(betas) > 1:
                     additional_columns['beta1'] = betas[1]
 
-    return GWASResult(genotypeData.chromosomes,genotypeData.positions,pvals,genotypeData.get_mafs(),method = analysis_method,transformation = transformation,additional_columns = additional_columns)
+    return GWASResult(genotypeData.chrs,genotypeData.chromosomes,genotypeData.positions,pvals,genotypeData.get_mafs(),method = analysis_method,transformation = transformation,additional_columns = additional_columns)
 
 
 

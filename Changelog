@@ -1,3 +1,7 @@
+0.1.10
+--
+* Remove hardcoded chromosome list
+
 0.1.9
 --
 * Support for statistics (pseudo_heritability and shapiro wilks) added

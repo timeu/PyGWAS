@@ -15,10 +15,9 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15):
     format = os.path.splitext(output_file)[1][1:].strip().lower()
     if format not in SUPPORTED_FORMAT:
         raise Exception('%s not supported format'%format)
-    if chrs is None:
-        chrs = ['chr1','chr2','chr3','chr4','chr5']
-
     bh_thres,bonferroni_threshold,max_score,num_scores,min_score = _get_gwas_infos(gwas_result)
+    if chrs is None:
+        chrs = gwas_result.chrs
     chr_label = ''
     data = _get_data(gwas_result)
     offset = 0 
@@ -29,10 +28,13 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15):
     
     ticklist = []
     ticklabels = []
-    for chr in chrs:
+    for ix,chr in enumerate(chrs):
         chr_data = _get_chr_data(data,chr,mac)
         newPosList = [offset + pos for pos in chr_data['positions']]
-        plt.plot(newPosList,chr_data['scores'],".", markersize=markersize, alpha=0.7, mew=0,color=color_map[chr])
+        color = color_map.get(chr,None)
+        if color is None:
+           color = color_map['chr%s'% ((ix+1) % len(color_map))]
+        plt.plot(newPosList,chr_data['scores'],".", markersize=markersize, alpha=0.7, mew=0,color=color)
         oldOffset = offset
         chr_end = chr_data['positions'][-1]
         offset =+newPosList[-1]

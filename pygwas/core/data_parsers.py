@@ -68,7 +68,7 @@ def parse_genotype_csv_file(csv_file,format='binary', missingVal='NA'):
     retval ={}
 
     with open(csv_file) as f:
-        dialect = csv.Sniffer().sniff(f.read(1024))
+        dialect = csv.Sniffer().sniff(f.read(40))
         f.seek(0)
         reader = csv.reader(f, dialect)
         header = reader.next()
