@@ -495,7 +495,7 @@ def parse_phenotype_file(file_name, delim=','):
         for row in reader:
             try:
                 values.append(float(row[1]))
-                ets.append(int(row[0]))
+                ets.append(row[0].strip())
             except ValueError:
                 log.warning('could not parse row %s' %row)
     return Phenotype(ets,values,name)

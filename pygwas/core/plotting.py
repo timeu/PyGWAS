@@ -28,6 +28,8 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15):
     
     ticklist = []
     ticklabels = []
+    import pdb
+    pdb.set_trace()
     for ix,chr in enumerate(chrs):
         chr_data = _get_chr_data(data,chr,mac)
         newPosList = [offset + pos for pos in chr_data['positions']]
@@ -36,8 +38,8 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15):
            color = color_map['chr%s'% ((ix+1) % len(color_map))]
         plt.plot(newPosList,chr_data['scores'],".", markersize=markersize, alpha=0.7, mew=0,color=color)
         oldOffset = offset
-        chr_end = chr_data['positions'][-1]
-        offset =+newPosList[-1]
+        chr_end = chr_data['positions'][-1] if len(chr_data['positions']) > 0 else 0
+        offset =+ newPosList[-1] if len(newPosList) > 0 else 0
         for j in range(oldOffset, offset, 4000000):
             ticklist.append(j)
         for j in range(0, chr_end, 4000000):

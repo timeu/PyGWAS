@@ -66,9 +66,7 @@ def get_parser(program_license,program_version_message):
 
     analysis_parser.add_argument("-t", "--transformation", dest="transformation", help="Apply a transformation to the data. Default[None]", choices=["log", "sqrt", "exp", "sqr", "arcsin_sqrt", "box_cox"])
     analysis_parser.add_argument("-a", "--analysis_method", dest="analysis_method", help="analyis method to use",required=True,choices=["lm", "emma", "emmax", "kw", "ft", "emmax_anova", "lm_anova", "emmax_step", "lm_step","loc_glob_mm","amm"])
-    analysis_parser.add_argument("-g", "--genotype", dest="genotype", help="genotype dataset to be used in the GWAS analysis (run with option -l to display list of available genotype datasets)", required=True, type=int,metavar="INTEGER" )
-    analysis_parser.add_argument("-f", "--genotype_folder", dest="genotype_folder", help="Folder where the genotypes are located",metavar="FOLDER")
-
+    analysis_parser.add_argument("-g", "--genotype", dest="genotype_folder", help="folder with the genotypes for the GWAS analysis", required=True,metavar="FOLDER")
     analysis_parser.add_argument("-k", "--kinship", dest="kinship", help="Specify the file containing the kinship matrix. (otherwise default file is used or it's generated.)", metavar="FILE" )
     analysis_parser.add_argument("-o", "--output_file", dest="outputfile", help="Name of the output file")
     analysis_parser.add_argument(dest="file", help="csv file containing phenotype values", metavar="FILE")
@@ -90,8 +88,7 @@ def get_parser(program_license,program_version_message):
 
     stats_parser = subparsers.add_parser('stats',help='Retrieve some stats')
     stats_parser.add_argument("-t", "--type", dest="type",required=True, help="type of the statistics to return",choices=["all","pseudo","shapiro"])
-    stats_parser.add_argument("-g", "--genotype", dest="genotype", help="genotype dataset to be used in the GWAS analysis (run with option -l to display list of available genotype datasets)", required=True, type=int,metavar="INTEGER" )
-    stats_parser.add_argument("-f", "--genotype_folder", dest="genotype_folder", help="Folder where the genotypes are located",metavar="FOLDER")
+    stats_parser.add_argument("-g", "--genotype", dest="genotype_folder", help="folder with the genotypes for the GWAS analysis", required=True,metavar="FOLDER")
     stats_parser.add_argument("-k", "--kinship", dest="kinship", help="Specify the file containing the kinship matrix. (otherwise default file is used or it's generated.)", metavar="FILE" )
     stats_parser.add_argument(dest="file", help="csv file containing phenotype values",  metavar="FILE")
     stats_parser.set_defaults(func=calculate_stats)
@@ -146,10 +143,9 @@ def _get_indicies_(phen_acc,geno_acc):
 def calculate_stats(args):
     phenotype_file = args['file']
     genotype_folder = args['genotype_folder']
-    genotype = args['genotype']
     stat_type =args['type']
     phenData = phenotype.parse_phenotype_file(phenotype_file)  #load phenotype file
-    genotypeData = _load_genotype_(genotype_folder,genotype)
+    genotypeData = _load_genotype_(genotype_folder)
     phenData.convert_to_averages()
     sd_indices_to_keep,pd_indices_to_keep = _get_indicies_(phenData.ecotypes,genotypeData.accessions)
     phenData.filter_ecotypes(pd_indices_to_keep)
@@ -158,7 +154,7 @@ def calculate_stats(args):
     phen_vals = phenData.values
     kinship_file = args['kinship']
     if kinship_file is None:
-        kinship_file = _get_kinship_file_(genotype_folder,genotype)
+        kinship_file = _get_kinship_file_(genotype_folder)
         K = kinship.load_kinship_from_file(kinship_file, accessions.tolist())['k']
     statistics = {}
     if stat_type == 'all':
@@ -211,17 +207,17 @@ def run(args):
     _,ext = os.path.splitext(args['outputfile'])
     if ext not in SUPPORTED_FILE_EXT:
         raise Exception('The output file must have one of the supported extensions: %s' % supported_extensions)
-    gwas_result = perform_gwas(args['file'],args['analysis_method'], args['genotype_folder'],args['genotype'],args['transformation'],args['kinship'])
+    gwas_result = perform_gwas(args['file'],args['analysis_method'], args['genotype_folder'],args['transformation'],args['kinship'])
     if ext == '.hdf5':
         gwas_result.save_as_hdf5(args['outputfile'])
     else:
         gwas_result.save_as_csv(args['outputfile'])
 
 
-def perform_gwas(phenotype_file,analysis_method,genotype_folder,genotype,transformation=None,kinshipFile=None):
+def perform_gwas(phenotype_file,analysis_method,genotype_folder,transformation=None,kinshipFile=None):
     phenData = phenotype.parse_phenotype_file(phenotype_file)  #load phenotype file
     additional_columns = {}
-    genotypeData = _load_genotype_(genotype_folder,genotype)
+    genotypeData = _load_genotype_(genotype_folder)
     K = None
     n_filtered_snps = _prepare_data_(genotypeData,phenData)
     phen_vals = phenData.values
@@ -229,7 +225,7 @@ def perform_gwas(phenotype_file,analysis_method,genotype_folder,genotype,transfo
         #Load genotype file (in binary format)
         log.debug("Retrieving the Kinship matrix K.\n")
         if kinshipFile is None:   #Kinship file was supplied..
-	    kinshipFile = _get_kinship_file_(genotype_folder,genotype)
+	    kinshipFile = _get_kinship_file_(genotype_folder)
         log.info('Loading kinship file: %s' % kinshipFile,extra={'progress':5})
         K = kinship.load_kinship_from_file(kinshipFile, genotypeData.accessions.tolist(),n_removed_snps=n_filtered_snps)['k']
         log.info('Done!')
@@ -273,19 +269,16 @@ def _prepare_data_(genotypeData, phenData,with_replicates=False):
     d = genotypeData.coordinate_w_phenotype_data(phenData)
     return d['n_filtered_snps']
 
-def _get_folder_(folder,genotype_id):
-    return os.path.join(folder, str(genotype_id))
 
-def _load_genotype_(folder,genotype_id):
+def _load_genotype_(folder):
     data_format = 'binary'
-    file_prefix = _get_folder_(folder,genotype_id)
-    hdf5_file = os.path.join(file_prefix,'all_chromosomes_%s.hdf5' % data_format)
+    hdf5_file = os.path.join(folder,'all_chromosomes_%s.hdf5' % data_format)
     if os.path.isfile(hdf5_file):
         return genotype.load_hdf5_genotype_data(hdf5_file)
     raise Exception('No Genotype files in %s folder were found.' % file_prefix)
 
-def _get_kinship_file_(folder,genotype_id):
-    return os.path.join(_get_folder_(folder,genotype_id),'kinship_ibs_binary_mac5.h5py')
+def _get_kinship_file_(folder):
+    return os.path.join(folder,'kinship_ibs_binary_mac5.h5py')
 
 
 if __name__ == '__main__':

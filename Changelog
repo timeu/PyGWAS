@@ -1,3 +1,8 @@
+1.0.0
+--
+* Simplified command line args 
+* Fixed bug when plotting Manhattan plots that contain no data
+
 0.1.10
 --
 * Remove hardcoded chromosome list
