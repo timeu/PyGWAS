@@ -260,7 +260,7 @@ def emmax_step(phen_vals, genotype, K, cof_chr_pos_list, eig_L=None, eig_R=None,
     reml_dict = lmm.get_REML(eig_L=eig_L, eig_R=eig_R)
     ml_dict = lmm.get_ML(eig_L=eig_L, eig_R=eig_R)
     log.debug('Done.')
-    log.debug('pseudo_heritability: %s' % reml_dict['pseudo_heritability'])
+    log.info('pseudo_heritability: %s' % reml_dict['pseudo_heritability'])
     H_sqrt_inv = reml_dict['H_sqrt_inv']
 
     if not progress_file_writer == None:

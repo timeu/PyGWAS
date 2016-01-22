@@ -929,7 +929,7 @@ class LinearMixedModel(LinearModel):
         p_vals = sp.empty(num_snps)
 
         # Run null model....
-
+        log.info('Starting EMMA scan for %d SNPs' %len(snps))
         for i, snp in enumerate(snps):
             res = self.get_estimates(eig_L=eig_L, xs=sp.matrix(snp).T, ngrids=ngrids, llim=llim, ulim=ulim,
                                esp=esp, return_pvalue=True, return_f_stat=True)
@@ -941,10 +941,9 @@ class LinearMixedModel(LinearModel):
             betas.append(map(float, list(res['beta'])))
             p_vals[i] = res['p_val']
             rss_list[i] = res['rss']
-            if verbose and num_snps >= 1000 and (i + 1) % (num_snps / 1000) == 0:  # Print dots
-                sys.stdout.write('.')
-                sys.stdout.flush()
-
+            if (i+1) % (num_snps / 10) == 0:
+                perc = round(100.0 * i /num_snps)
+                log.info('Performing EMMA (SNPs completed: %d %%)' % perc)
 
         return {'ps':p_vals, 'f_stats':f_stats, 'vgs':vgs, 'ves':ves, 'var_perc':var_perc,
             'max_lls':max_lls, 'betas':betas, 'rss':rss_list}
@@ -1258,8 +1257,7 @@ class LinearMixedModel(LinearModel):
             Xs = sp.matrix(snps_chunk,dtype=dtype) * M
             for X_j in Xs:
                 if with_betas:
-                    (betas, rss, p, sigma) = linalg.lstsq(sp.hstack([h0_X, X_j.T]), Y, \
-                                    overwrite_a=True)
+                    (betas, rss, p, sigma) = linalg.lstsq(sp.hstack([h0_X, X_j.T]), Y, overwrite_a=True)
                     if rss:
                         betas_list[i] = map(float, list(betas))
                 else:
@@ -1308,10 +1306,7 @@ class LinearMixedModel(LinearModel):
                 res_d['ps'][pi] = p
                 res_d['f_stats'][pi] = f
                 res_d['rss'][pi] = r
-                # assert v < 1.01, '%d: %f' % (pi, v)
                 res_d['var_perc'][pi] = v
-
-        # assert sp.all(res_d['var_perc'] < 1.01), '%f\n%s\n%s' % (h0_rss, str(var_perc[var_perc < 1.01]), str(rss_list[var_perc < 1.01]))
         return res_d
 
 
