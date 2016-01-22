@@ -28,8 +28,7 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15):
     
     ticklist = []
     ticklabels = []
-    import pdb
-    pdb.set_trace()
+
     for ix,chr in enumerate(chrs):
         chr_data = _get_chr_data(data,chr,mac)
         newPosList = [offset + pos for pos in chr_data['positions']]
@@ -48,6 +47,8 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15):
             else:
                 ticklabels.append("")
     x_range = offset
+    max_score = max([bonferroni_threshold,bh_thres,max_score])
+
     score_range = max_score - min_score
     padding = 0.05*(score_range)
     bonf_handle, = plt.plot([0, x_range], [bonferroni_threshold, bonferroni_threshold],color='r', linestyle="--",linewidth = 0.5)
