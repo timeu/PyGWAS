@@ -4,6 +4,7 @@ import statistics as stats
 import math
 import h5py
 import numpy
+import sys
 
 
 log = logging.getLogger(__name__)
@@ -89,6 +90,9 @@ class GWASResult(object):
 
     
     def __init__(self,chrs,chromosomes,positions,pvals,maf_dict,method = 'N/A',transformation = None,stats = None,additional_columns = None,step_stats = None):
+        self.ix_with_bad_pvalues = ix_with_bad_pvalues = numpy.where(pvals == 0.0)[0]
+        if len(ix_with_bad_pvalues) > 0:
+            pvals[ix_with_bad_pvalues] = sys.float_info.min
         self.pvals = pvals
         self.method = method
         self.transformation = transformation
@@ -154,6 +158,8 @@ class GWASResult(object):
         
         #store pvalues
         pvals_group = f.create_group('pvalues')
+        if len(self.ix_with_bad_pvalues) > 0:
+            pvals_group.attrs['ix_with_bad_pvalues'] = self.ix_with_bad_pvalues
         pvals_group.attrs['numberOfSNPs'] = len(scores)
         pvals_group.attrs['max_score'] = max(scores)
         if self.method is not None:
