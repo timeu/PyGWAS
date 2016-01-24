@@ -1,3 +1,8 @@
+1.0.1
+--
+* Bugfix: Plotting will make axis high enough to display the FDR threshold
+* Bugfix: math domain error due to very low pvalues fixed
+
 1.0.0
 --
 * Simplified command line args 
