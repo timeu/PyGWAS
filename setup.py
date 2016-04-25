@@ -34,9 +34,9 @@ setup(
     keywords='GWAS',
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
     install_requires=[
-        "numpy >=1.6.1",
-        "scipy >=0.13.0",
-        "h5py >=2.1.3",
+        "numpy",
+        "scipy",
+        "h5py",
         "matplotlib >= 1.4.3"
     ],
     entry_points={

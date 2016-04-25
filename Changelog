@@ -1,3 +1,7 @@
+1.0.2
+--
+* Change: Remove hardcoded chromosomes names
+
 1.0.1
 --
 * Bugfix: Plotting will make axis high enough to display the FDR threshold

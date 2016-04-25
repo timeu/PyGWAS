@@ -32,11 +32,11 @@ def load_from_hdf5(filename):
     mafs = []
     macs = []
     additional_columns = {}
-    chrs = f['pvalues'].keys()
+    chrs = map(lambda x:x[3:],f['pvalues'].keys())
     
     for ix,chr in enumerate(chrs):
-        chr_group = pvals_group[chr]
-        chromosomes.extend([ix+1]*len(chr_group['positions']))
+        chr_group = pvals_group['chr%s'% chr]
+        chromosomes.extend([chr]*len(chr_group['positions']))
         positions.extend(chr_group['positions'][:].tolist())
         scores.extend(chr_group['scores'][:].tolist())
         mafs.extend(chr_group['mafs'][:].tolist())
@@ -72,8 +72,8 @@ def load_from_csv(filename):
             fields = row.rstrip().split(",")
             if chr != fields[0]:
                 chr = fields[0]
-                chrs.append('chr%s'% chr)
-            chromosomes.append(int(chr))
+                chrs.append(chr)
+            chromosomes.append(chr)
             positions.append(int(fields[1]))
             pvals.append(float(fields[2]))
             mafs.append(float(fields[3]))
@@ -174,22 +174,22 @@ class GWASResult(object):
         pvals_group.attrs['med_pval'] = self.stats['med_pval']
         pvals_group.attrs['bh_thres'] =-math.log10(self.stats['bh_thres_d']['thes_pval'])
 
-        data = numpy.array(zip(chromosomes, positions, scores, maf_dict['mafs'], maf_dict['macs'],*self.additional_columns.values()))
+        data = numpy.core.records.fromrecords(zip(chromosomes, positions, scores, maf_dict['mafs'], maf_dict['macs'],*self.additional_columns.values()),names='chr,positions,scores,mafs,macs')
         for ix,chr in enumerate(self.chrs):
-            chr_group = pvals_group.create_group('chr%s' % chr)
-            chr_data = data[numpy.where(data[:,0] == (ix+1))]
-            chr_data =chr_data[chr_data[:,2].argsort()[::-1]]
-            positions = chr_data[:,1]
+            chr_group = pvals_group.create_group("chr%s" % chr)
+            chr_data = data[numpy.where(data['chr'] == chr)]
+            chr_data =chr_data[chr_data['scores'].argsort()[::-1]]
+            positions = chr_data['positions']
             chr_group.create_dataset('positions',(len(positions),),'i4',data=positions)
-            scores = chr_data[:,2]
+            scores = chr_data['scores']
             chr_group.create_dataset('scores',(len(scores),),'f8',data=scores)
-            mafs = chr_data[:,3]
+            mafs = chr_data['mafs']
             chr_group.create_dataset('mafs',(len(mafs),),'f8',data=mafs)
-            macs = chr_data[:,4]
+            macs = chr_data['macs']
             chr_group.create_dataset('macs',(len(macs),),'i4',data=macs)
 
-            if chr_data.shape[1] > 5: 
+            if len(chr_data.dtype) > 5:
                 for i,key in enumerate(self.additional_columns.keys()):
-                    values = chr_data[:,5+i]
+                    values = chr_data['f%s'% (5+i)]
                     chr_group.create_dataset(key,values.shape,values.dtype,data=values) 
         f.close()

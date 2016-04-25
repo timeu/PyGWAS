@@ -79,8 +79,7 @@ def get_parser(program_license,program_version_message):
 
     plotter_parser = subparsers.add_parser('plot',help='Plot a GWAS result')
     plotter_parser.add_argument('-c','--chr',dest='chr',
-	 help='Chromosome to plot. If not specified prints all chromosomes (Default:None)',
-	choices=['chr1','chr2','chr3','chr4','chr5'],default=None)
+         help='Chromosome to plot. If not specified prints all chromosomes (Default:None)',default=None)
     plotter_parser.add_argument('-m','--macs',dest='macs',default=15,type=int,help='Minor Allele Count filter (Default: 15)')
     plotter_parser.add_argument("-o",'--output',dest='output',required=True,help='The output image file')
     plotter_parser.add_argument(dest="file", help="GWAS result file (.hdf5 or .csv)", metavar="FILE")

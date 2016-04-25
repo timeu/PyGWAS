@@ -12,17 +12,26 @@ import matplotlib.pyplot as plt
 SUPPORTED_FORMAT=('png','pdf')
 
 def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15):
+    chr_map = None
+    if chrs is not None:
+        chr_map = set(chrs)
+    chrs = gwas_result.chrs
+    if chr_map is not None:
+        for ix,chr in enumerate(chrs):
+            if chr not in chr_map:
+                chrs[ix] = None
+
+    if len(filter(lambda x: x is not None,chrs)) == 0:
+        raise ValueError('Chromosomes %s  not found' % chr_map)
     format = os.path.splitext(output_file)[1][1:].strip().lower()
     if format not in SUPPORTED_FORMAT:
         raise Exception('%s not supported format'%format)
     bh_thres,bonferroni_threshold,max_score,num_scores,min_score = _get_gwas_infos(gwas_result)
-    if chrs is None:
-        chrs = gwas_result.chrs
     chr_label = ''
     data = _get_data(gwas_result)
     offset = 0 
     markersize=3
-    color_map = {'chr1':'b', 'chr2':'g', 'chr3':'r', 'chr4':'c', 'chr5':'m'}
+    color_map = ['b', 'g', 'r', 'c', 'm']
     plt.figure(figsize=(11, 3.8))
     plt.axes([0.045, 0.15, 0.99, 0.61])
     
@@ -30,11 +39,14 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15):
     ticklabels = []
 
     for ix,chr in enumerate(chrs):
+        if chr is None:
+            continue
         chr_data = _get_chr_data(data,chr,mac)
         newPosList = [offset + pos for pos in chr_data['positions']]
-        color = color_map.get(chr,None)
-        if color is None:
-           color = color_map['chr%s'% ((ix+1) % len(color_map))]
+        color_ix = ix
+        if color_ix >= len(color_map):
+            color_ix = (ix+1) % color_ix
+        color = color_map[color_ix]
         plt.plot(newPosList,chr_data['scores'],".", markersize=markersize, alpha=0.7, mew=0,color=color)
         oldOffset = offset
         chr_end = chr_data['positions'][-1] if len(chr_data['positions']) > 0 else 0
@@ -88,13 +100,13 @@ def _get_gwas_infos(gwas_result):
 def _get_data(gwas_result):
     scores = map(lambda x: -math.log10(x),gwas_result.pvals)
     if gwas_result.maf_dict is not None and 'macs' in gwas_result.maf_dict:
-        data = numpy.rec.fromarrays((gwas_result.chromosomes,gwas_result.positions,scores,gwas_result.maf_dict['macs']),dtype=[('chromosomes',int),('positions', int),('scores', float),('macs',int)])
+        data = numpy.rec.fromarrays((gwas_result.chromosomes,gwas_result.positions,scores,gwas_result.maf_dict['macs']),dtype=[('chromosomes','S2'),('positions', int),('scores', float),('macs',int)])
     else:
-        data = numpy.rec.fromarrays((gwas_result.chromosomes,gwas_result.positions,scores),dtype=[('chromosomes',int),('positions', int),('scores', float)]) 
+        data = numpy.rec.fromarrays((gwas_result.chromosomes,gwas_result.positions,scores),dtype=[('chromosomes','S2'),('positions', int),('scores', float)])
     return data
 
 def _get_chr_data(data,chr,mac=15):
-    chr_data = data[data['chromosomes'] == int(chr[3])]
+    chr_data = data[data['chromosomes'] == chr]
     chr_data.sort(order='positions')
     if len(chr_data.dtype) == 4:
         ix = chr_data['macs'] > mac

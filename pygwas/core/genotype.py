@@ -95,7 +95,7 @@ class AbstractGenotype(object):
     def chromosomes(self):
         chromosomes = []
         for i,chr_region in enumerate(self.chr_regions):
-			chromosomes.extend([(i+1)] * (chr_region[1] - chr_region[0]))
+                        chromosomes.extend([self.chrs[i]] * (chr_region[1] - chr_region[0]))
         return chromosomes
 
     @abstractproperty
