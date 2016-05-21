@@ -1,5 +1,6 @@
 import pytest
 import numpy
+from pygwas.core import phenotype
 
 
 class TestGenotype:
@@ -26,8 +27,23 @@ class TestGenotype:
 		assert snps[727] == 1
 
 
+	def test_snp_iterator_chunked(self,geno):
+		snps = next(geno.get_snps_iterator(2,True,chunk_size=1000))
+		assert len(snps) == 1000
+		snp = snps[0]
+		assert sum(snp) == 1030
+		assert snp[200] == 1
+		assert snp[811] == 0
+		
+		#numpy.where(self.chrs == str(chr))[0][0]
 
-
+	def test_snp_iterator_non_chunked(self,geno):
+		snp = next(geno.get_snps_iterator(2,False))
+		assert len(snp) == 1386
+		assert sum(snp) == 1030
+		assert snp[200] == 1
+		assert snp[811] == 0
+		
 
 	def test_get_snp_at_unknown_pos(self,geno):
 		snps = geno.get_snp_at(1,16036830)
@@ -44,6 +60,21 @@ class TestGenotype:
 
 		snps = geno.get_snp_at(5,14252114)
 		assert snps is None
+
+
+	def test_get_snps_filtered_by_ix(self,geno):
+		index_filter = [10,500,1000]
+		geno.filter_accessions_ix(index_filter)
+		assert(len(geno.accessions) == 3)
+		assert geno.accessions.tolist() == ['9352', '1872', '6188']
+		
+		
+	def test_get_snps_filtered_by_id(self,geno):
+		accession_filter = ['1872','9352','6188']
+		geno.filter_accessions(accession_filter)
+		assert(len(geno.accessions) == 3)
+		assert geno.accessions.tolist() == ['9352', '1872', '6188']
+		
 
 
 	def test_get_snps_from_pos_filtered(self,geno):
@@ -105,3 +136,13 @@ class TestGenotype:
 
 		assert sum(snps[5]) == 107
 		assert snps[5][963] == 1
+    
+	def test_coorindate_with_phenotype(self,geno):
+		ets = ['9390','9356','6909','asdas']
+		values = [1,2,3,4]
+		pheno = phenotype.Phenotype(ets,values,'test')
+		res = geno.coordinate_w_phenotype_data(pheno)
+		assert len(geno.accessions) == 3
+		assert geno.accessions.tolist() == ['9356', '6909', '9390']
+		assert res['n_filtered_snps'] == 86497
+		assert res['pd_indices_to_keep'] == [1,2,0]
