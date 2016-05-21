@@ -10,6 +10,7 @@ import scipy
 import csv
 import pdb
 import itertools
+from operator import itemgetter
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 log = logging.getLogger(__name__)
@@ -55,7 +56,14 @@ def load_csv_genotype_data(csv_files,format='binary'):
     log.info("Finished loading Genotype file: %s SNPs %s accessions %s chromosomes" % (len(positions),len(accessions),len(chrs)))
     return Genotype(snps,positions, accessions,chr_regions,chrs,format)
 
-
+def calculate_ld(snps):
+        #filter non binary snps
+        snps_t = scipy.transpose(snps)
+        snps_stand = scipy.transpose((snps_t - scipy.mean(snps, 1)) / scipy.std(snps, 1))
+        r2_values =scipy.dot(snps_stand, scipy.transpose(snps_stand))
+        r2_values *= (1.0 / snps.shape[1])
+        r2_values **= 2
+        return r2_values
 
 
 class AbstractGenotype(object):
@@ -78,6 +86,9 @@ class AbstractGenotype(object):
             if self.positions[snp_ix] == position:
                 return self.snps[snp_ix]
         return None
+        
+    def get_chr_region_ix(self,chr):
+        return numpy.where(self.chrs == str(chr))[0][0]
 
     @abstractproperty
     def positions(self):
@@ -95,7 +106,7 @@ class AbstractGenotype(object):
     def chromosomes(self):
         chromosomes = []
         for i,chr_region in enumerate(self.chr_regions):
-                        chromosomes.extend([self.chrs[i]] * (chr_region[1] - chr_region[0]))
+			chromosomes.extend([self.chrs[i]] * (chr_region[1] - chr_region[0]))
         return chromosomes
 
     @abstractproperty
@@ -126,8 +137,8 @@ class AbstractGenotype(object):
             pos_indices = []
             it = self.get_snps_iterator(chr)
             for position in positions:
-                pos_ix = self._get_pos_ix_(chr,position[1])
-                if pos_ix is None:
+                pos_ix = self.get_pos_ix(chr,position[1])
+                if pos_ix[2] == False:
                     it_ix+=1
                     continue
                 filtered_chr_pos_ix[0].append(chr_pos_ix[0][it_ix])
@@ -141,17 +152,19 @@ class AbstractGenotype(object):
         return (map(list,zip(*sorted(zip(filtered_chr_pos_ix[1],indices))))[1],map(list,zip(*sorted(zip(filtered_chr_pos_ix[1],snps))))[1])
 
 
-    def _get_pos_ix_(self,chr,position):
+    def get_pos_ix(self,chr,position):
         """
         Returns the index of chr,position using bisect
         """
-        chr_region = self.chr_regions[(chr-1)]
+        chr_region = self.chr_regions[self.get_chr_region_ix(chr)]
         positions = self.positions[chr_region[0]:chr_region[1]]
         i = bisect.bisect_left(positions, position)
         abs_ix = i + chr_region[0]
+        found = False
         if abs_ix != len(self.positions) and self.positions[abs_ix] == position:
-            return (abs_ix,i)
-        return None
+            found = True
+        return (abs_ix,i,found)
+        
 
     def get_chr_region_from_index(self,ix):
         for i,chr_region in enumerate(self.chr_regions):
@@ -183,6 +196,22 @@ class AbstractGenotype(object):
     def genome_length(self):
         pass
 
+
+    def filter_accessions(self,accession_ids):
+        sd_indices_to_keep = set()
+        pd_indices_to_keep = []
+        for i, acc in enumerate(self.accessions):
+            for j, et in enumerate(accession_ids):
+                if str(et) == str(acc):
+                    sd_indices_to_keep.add(i)
+                    pd_indices_to_keep.append(j)
+
+        sd_indices_to_keep = list(sd_indices_to_keep)
+        sd_indices_to_keep.sort()
+        self.filter_accessions_ix(sd_indices_to_keep)
+        return sd_indices_to_keep,pd_indices_to_keep
+        
+
     @abstractmethod
     def filter_accessions_ix(self,accessions_ix):
         pass
@@ -201,19 +230,10 @@ class AbstractGenotype(object):
         """
         log.debug("Coordinating SNP and Phenotype data.")
         ets = phenotype.ecotypes
-        sd_indices_to_keep = set()
-        pd_indices_to_keep = []
-        for i, acc in enumerate(self.accessions):
-            for j, et in enumerate(ets):
-                if str(et) == str(acc):
-                    sd_indices_to_keep.add(i)
-                    pd_indices_to_keep.append(j)
-
-        sd_indices_to_keep = list(sd_indices_to_keep)
-        sd_indices_to_keep.sort()
+        
         #Filter accessions which do not have phenotype values (from the genotype data).
         log.debug("Filtering accessions")
-        self.filter_accessions_ix(sd_indices_to_keep)
+        sd_indices_to_keep,pd_indices_to_keep =  self.filter_accessions(ets)
 
         if coord_phen:
             num_values = phenotype.num_vals
@@ -325,6 +345,12 @@ class AbstractGenotype(object):
         self.filter_snps_ix(snps_ix)
         log.info("Removed %d non-binary SNPs, leaving %d SNPs in total." % (numRemoved, self.num_snps))
         return (num_snps,numRemoved)
+        
+    def calculate_ld(self,chr_pos):
+        # sort chr_pos first
+        chr_pos = sorted(chr_pos,key=itemgetter(0,1))
+        indices,snps = self.get_snps_from_pos(chr_pos)
+        return calculate_ld(numpy.vstack(snps))
 
 
 class Genotype(AbstractGenotype):
@@ -387,7 +413,7 @@ class Genotype(AbstractGenotype):
         start = 0
         end = None
         if chr is not None:
-            chr_region = self.chr_regions[chr-1]
+            chr_region = self.chr_regions[self.get_chr_region_ix(chr)]
             start = chr_region[0]
             end = chr_region[1]
         if is_chunked:
@@ -495,7 +521,7 @@ class HDF5Genotype(AbstractGenotype):
     def __init__(self,hdf5_file):
         self.h5file = h5py.File(hdf5_file, 'r')
         self.filter_snps = None
-        self.filter_accessions = None
+        self.accession_filter = None
 
     def __del__(self):
         if self.h5file is not None:
@@ -516,10 +542,10 @@ class HDF5Genotype(AbstractGenotype):
 
     @property
     def accessions(self):
-        if self.filter_accessions is None or len(self.filter_accessions) == 0:
+        if self.accession_filter is None or len(self.accession_filter) == 0:
             return self.h5file['accessions'][:]
         else:
-            return self.h5file['accessions'][self.filter_accessions]
+            return self.h5file['accessions'][self.accession_filter]
 
     def convert_data_format(self,target_format='binary'):
         raise NotImplementedError
@@ -532,7 +558,7 @@ class HDF5Genotype(AbstractGenotype):
             end = self.original_num_snps
         for i in xrange(start,end,chunk_size):
             stop_i = min(i + chunk_size, end)
-            if self.filter_accessions is None or len(self.filter_accessions) == 0:
+            if self.accession_filter is None or len(self.accession_filter) == 0:
                 if self.filter_snps is None:
                     yield self.h5file['snps'][i:stop_i]
                 else:
@@ -540,11 +566,11 @@ class HDF5Genotype(AbstractGenotype):
             else:
                 if self.filter_snps is None:
                     # first read the entire row and then filter columns (7.91ms vs 94.3ms)
-                    yield self.h5file['snps'][i:stop_i][:,self.filter_accessions]
+                    yield self.h5file['snps'][i:stop_i][:,self.accession_filter]
                 else:
                     filter_chunk = self.filter_snps[i:stop_i]
                     # first read the entire row and then filter columns (7.91ms vs 94.3ms)
-                    snps_chunk = self.h5file['snps'][i:stop_i][:,self.filter_accessions]
+                    snps_chunk = self.h5file['snps'][i:stop_i][:,self.accession_filter]
                     yield snps_chunk[filter_chunk]
 
     def get_snps_iterator(self,chr=None,is_chunked=False,chunk_size=1000):
@@ -556,7 +582,7 @@ class HDF5Genotype(AbstractGenotype):
         end = None
         if chr is not None:
 			# use unfiltered chr_regions because filtering happens in _get_snps_
-            chr_region = self.h5file['positions'].attrs['chr_regions'][chr-1]
+            chr_region = self.h5file['positions'].attrs['chr_regions'][self.get_chr_region_ix(chr)]
             start = chr_region[0]
             end = chr_region[1]
         for snp_chunk in self._get_snps_(start=start,end=end,chunk_size=chunk_size):
@@ -605,7 +631,7 @@ class HDF5Genotype(AbstractGenotype):
         Removes accessions from the data.
         """
         num_accessions = len(self.accessions)
-        self.filter_accessions = indicesToKeep
+        self.accession_filter = indicesToKeep
         log.debug("Removed %d accessions, leaving %d in total." % (num_accessions - len(indicesToKeep), len(indicesToKeep)))
 
 

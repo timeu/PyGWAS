@@ -22,7 +22,6 @@ def geno():
 def kinship():
     return None
 
-
 @pytest.fixture
 def phenotype():
     return phenotype.parse_phenotype_file('%s/phenotype.csv' % resource_path)
@@ -31,3 +30,7 @@ def phenotype():
 def statisticsArgs():
     return {'genotype_folder':resource_path,'genotype':'','type':'all'
         ,'file':'%s/phenotype.csv' %resource_path,'kinship':None}
+
+@pytest.fixture
+def gwas_filename():
+    return '%s/ld.hdf5' % resource_path

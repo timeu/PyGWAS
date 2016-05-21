@@ -122,7 +122,15 @@ class GWASResult(object):
         self.stats['quantiles_dict'] = stats.calculate_qqplot_data(self.pvals)
         
 
-    
+    def get_top_snps(self,top_ratio=2500):
+        data = numpy.core.records.fromrecords(zip(self.chromosomes, self.positions, self.pvals, self.maf_dict['mafs'], self.maf_dict['macs'],*self.additional_columns.values()),names='chr,positions,scores,mafs,macs')
+        data_to_return=[]
+        for ix,chr in enumerate(self.chrs):
+            chr_data = data[numpy.where(data['chr'] == chr)]
+            chr_data =chr_data[chr_data['scores'].argsort()[::]][:top_ratio]
+            data_to_return.append(chr_data)
+        return numpy.concatenate(data_to_return)
+         
       
     def save_as_csv(self,csv_file):
         data = numpy.array(zip(self.chromosomes, self.positions, self.pvals, self.maf_dict['mafs'], self.maf_dict['macs'],*self.additional_columns.values()))
