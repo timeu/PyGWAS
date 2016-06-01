@@ -1,3 +1,7 @@
+1.1.2
+--
+* Removed ipdb import
+
 1.1.1
 --
 * Bugfix: Load GWAS result even if quantile and statistics are missing
