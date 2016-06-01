@@ -14,18 +14,23 @@ def load_from_hdf5(filename):
     f = h5py.File(filename,'r') 
     quantiles_dict = {}
     stats =  {}
-    quantiles_dict['exp_quantiles'] = f['quantiles']['quantiles'][:,0].tolist()
-    quantiles_dict['quantiles'] = f['quantiles']['quantiles'][:,1].tolist()
-    quantiles_dict['exp_log_quantiles'] = f['quantiles']['log_quantiles'][:,0].tolist()
-    quantiles_dict['log_quantiles'] = f['quantiles']['log_quantiles'][:,1].tolist()
-    stats['quantiles_dict'] = quantiles_dict
+    if 'quantiles' in f:
+        quantiles_dict['exp_quantiles'] = f['quantiles']['quantiles'][:,0].tolist()
+        quantiles_dict['quantiles'] = f['quantiles']['quantiles'][:,1].tolist()
+        quantiles_dict['exp_log_quantiles'] = f['quantiles']['log_quantiles'][:,0].tolist()
+        quantiles_dict['log_quantiles'] = f['quantiles']['log_quantiles'][:,1].tolist()
+        stats['quantiles_dict'] = quantiles_dict
     pvals_group = f['pvalues']
-    method = pvals_group.attrs['analysis_method']
-    transformation = pvals_group.attrs['transformation']
-    stats['ks_stats'] = {'D':pvals_group.attrs['ks_stat']}
-    stats['ks_stats']['p_val'] = pvals_group.attrs['ks_pval']
-    stats['med_pval'] =  pvals_group.attrs['med_pval'] 
-    stats['bh_thres_d'] = {'thes_pval': math.pow(10,-pvals_group.attrs['bh_thres'])}
+    method = pvals_group.attrs.get('analysis_method','')
+    transformation = pvals_group.get('transformation','')
+    if 'ks_stat' in pvals_group.attrs:
+        stats['ks_stats'] = {'D':pvals_group.attrs['ks_stat']}
+    if 'ks_pval' in pvals_group.attrs:
+        stats['ks_stats']['p_val'] = pvals_group.attrs['ks_pval']
+    if 'med_pval' in pvals_group.attrs:
+        stats['med_pval'] =  pvals_group.attrs['med_pval'] 
+    if 'bh_thres' in pvals_group.attrs:
+        stats['bh_thres_d'] = {'thes_pval': math.pow(10,-pvals_group.attrs['bh_thres'])}
     chromosomes = []
     positions = []
     scores = []
