@@ -1,3 +1,8 @@
+1.1.1
+--
+* Bugfix: Load GWAS result even if quantile and statistics are missing
+* Bugfix: Allow to pass in a phenotype object instead of a phenotype file to calculate_stats function
+
 1.1.0
 -- 
 * Support for calculating LD added
