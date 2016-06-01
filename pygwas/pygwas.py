@@ -29,7 +29,6 @@ import sys
 import csv
 import h5py
 from operator import itemgetter
-import ipdb
 
 LOGGING = {
     'version': 1,
