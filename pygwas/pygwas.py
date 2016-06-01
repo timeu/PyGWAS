@@ -166,7 +166,10 @@ def calculate_stats(args):
     phenotype_file = args['file']
     genotype_folder = args['genotype_folder']
     stat_type =args['type']
-    phenData = phenotype.parse_phenotype_file(phenotype_file)  #load phenotype file
+    if 'phen_data' in args:
+        phenData = args['phen_data']
+    else:
+        phenData = phenotype.parse_phenotype_file(phenotype_file)
     genotypeData = _load_genotype_(genotype_folder)
     phenData.convert_to_averages()
     sd_indices_to_keep,pd_indices_to_keep = _get_indicies_(phenData.ecotypes,genotypeData.accessions)
@@ -174,10 +177,10 @@ def calculate_stats(args):
     accessions = genotypeData.accessions[sd_indices_to_keep]
     K = None
     phen_vals = phenData.values
-    kinship_file = args['kinship']
+    kinship_file = args.get('kinship',None)
     if kinship_file is None:
         kinship_file = _get_kinship_file_(genotype_folder)
-        K = kinship.load_kinship_from_file(kinship_file, accessions.tolist())['k']
+    K = kinship.load_kinship_from_file(kinship_file, accessions.tolist())['k']
     statistics = {}
     if stat_type == 'all':
         statistics['pseudo_heritability'] = gwas.calculate_pseudo_heritability(phen_vals,K)
