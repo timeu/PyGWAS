@@ -114,6 +114,12 @@ def get_parser(program_license,program_version_message):
     ld_parser.add_argument("-a", "--accessions", dest="acession_file", help="optional csv file with list of accession ids to filter", metavar="FILE")
     ld_parser.set_defaults(func=calc_ld)
 
+    kinship_parser = subparsers.add_parser('kinship',help='Calculate Kinship')
+    kinship_parser.add_argument(dest="genotype_file", help="genotype file", metavar="GENOTYPE FILE")
+    kinship_parser.add_argument(dest="output_file",help="output file (.hdf5)",metavar="OUTPUT FILE")
+    kinship_parser.add_argument("-t", "--type", dest="type",required=True, help="type of the kinship",choices=["ibs","ibd"])
+    kinship_parser.set_defaults(func=calc_kinship)
+
     return parser
 
 
@@ -160,6 +166,7 @@ def _get_indicies_(phen_acc,geno_acc):
     sd_indices_to_keep = list(sd_indices_to_keep)
     sd_indices_to_keep.sort()
     return (sd_indices_to_keep,pd_indices_to_keep)
+   
 
 def calculate_stats(args):
     phenotype_file = args['file']
@@ -283,6 +290,18 @@ def calc_ld(args):
     _save_ld_data(args['output_file'],ld_data,chr_pos_list)   
     
 
+def calc_kinship(args):
+    genotypeData = genotype.load_hdf5_genotype_data(args['genotype_file'])
+    type = args['type']
+    if type == 'ibs':
+        K = genotypeData.get_ibs_kinship_matrix(chunk_size = 10000)
+    elif type == 'ibd':
+        K = genotypeData.get_ibd_kinship_matrix(chunk_size = 10000)
+    else: 
+        raise Exception('%s kinship type not supported' % type)
+    kinship.save_kinship_to_file(args['output_file'],K,genotypeData.accessions,genotypeData.num_snps)
+    
+
 def perform_gwas(phenotype_file,analysis_method,genotype_folder,transformation=None,kinshipFile=None):
     phenData = phenotype.parse_phenotype_file(phenotype_file)  #load phenotype file
     additional_columns = {}
@@ -294,7 +313,7 @@ def perform_gwas(phenotype_file,analysis_method,genotype_folder,transformation=N
         #Load genotype file (in binary format)
         log.debug("Retrieving the Kinship matrix K.\n")
         if kinshipFile is None:   #Kinship file was supplied..
-	    kinshipFile = _get_kinship_file_(genotype_folder)
+	        kinshipFile = _get_kinship_file_(genotype_folder)
         log.info('Loading kinship file: %s' % kinshipFile,extra={'progress':5})
         K = kinship.load_kinship_from_file(kinshipFile, genotypeData.accessions.tolist(),n_removed_snps=n_filtered_snps)['k']
         log.info('Done!')

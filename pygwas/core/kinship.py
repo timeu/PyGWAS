@@ -17,12 +17,11 @@ def calc_ibs_kinship(genotype, snp_dtype='int8', dtype='single',chunk_size=None)
     data_format: two are currently supported, 'binary', and 'diploid_int'
     """
     num_snps = genotype.num_snps
-    log.debug('Allocating K matrix')
     num_lines = len(genotype.accessions)
     if chunk_size == None:
         chunk_size = num_lines
     k_mat = sp.zeros((num_lines, num_lines), dtype=dtype)
-    log.debug('Starting calculation')
+    log.info('Starting calculation of IBS kinship')
     chunk_i = 0
     snps = genotype.get_snps_iterator(is_chunked=True,chunk_size=chunk_size)
     snps_data_format = genotype.data_format
@@ -49,6 +48,7 @@ def calc_ibs_kinship(genotype, snp_dtype='int8', dtype='single',chunk_size=None)
         k_mat = k_mat / float(num_snps) + sp.eye(num_lines)
     elif snps_data_format == 'binary':
         k_mat = k_mat / (2 * float(num_snps)) + 0.5
+    log.info('Finished calculation')
     return k_mat
 
 
@@ -57,9 +57,12 @@ def calc_ibd_kinship(genotype, dtype='single',chunk_size=None):
     num_lines = len(genotype.accessions)
     if chunk_size == None:
         chunk_size = num_lines
-    k_mat = sp.zeros((n_indivs, n_indivs), dtype=dtype)
+    k_mat = sp.zeros((num_lines, num_lines), dtype=dtype)
+    log.info('Starting calculation of IBD Kinship')
+    chunk_i = 0
     snps = genotype.get_snps_iterator(is_chunked=True,chunk_size=chunk_size)
     for snps_chunk in snps:
+        chunk_i += 1
         snps_array = sp.array(snps_chunk)
         snps_array = snps_array.T
         norm_snps_array = (snps_array - sp.mean(snps_array, 0)) / sp.std(snps_array, 0)
@@ -67,6 +70,7 @@ def calc_ibd_kinship(genotype, dtype='single',chunk_size=None):
         k_mat += x.T * x
         log.debug('%0.2f%%' % (100.0 * (min(1, ((chunk_i + 1.0) * chunk_size) / num_snps))))
     k_mat = k_mat / float(num_snps)
+    log.info('Finished calculation')
     return k_mat
 
 
