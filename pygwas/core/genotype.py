@@ -86,8 +86,11 @@ class AbstractGenotype(object):
             if self.positions[snp_ix] == position:
                 return self.snps[snp_ix]
         return None
-        
+
     def get_chr_region_ix(self,chr):
+        # some genotype datasets have chromosomes as integers instead of strings
+        if self.chrs.dtype.kind == 'i':
+            return numpy.where(self.chrs == int(chr))[0][0]
         return numpy.where(self.chrs == str(chr))[0][0]
 
     @abstractproperty
@@ -164,7 +167,7 @@ class AbstractGenotype(object):
         if abs_ix != len(self.positions) and self.positions[abs_ix] == position:
             found = True
         return (abs_ix,i,found)
-        
+
 
     def get_chr_region_from_index(self,ix):
         for i,chr_region in enumerate(self.chr_regions):
@@ -210,7 +213,7 @@ class AbstractGenotype(object):
         sd_indices_to_keep.sort()
         self.filter_accessions_ix(sd_indices_to_keep)
         return sd_indices_to_keep,pd_indices_to_keep
-        
+
 
     @abstractmethod
     def filter_accessions_ix(self,accessions_ix):
@@ -230,7 +233,7 @@ class AbstractGenotype(object):
         """
         log.debug("Coordinating SNP and Phenotype data.")
         ets = phenotype.ecotypes
-        
+
         #Filter accessions which do not have phenotype values (from the genotype data).
         log.debug("Filtering accessions")
         sd_indices_to_keep,pd_indices_to_keep =  self.filter_accessions(ets)
@@ -345,7 +348,7 @@ class AbstractGenotype(object):
         self.filter_snps_ix(snps_ix)
         log.info("Removed %d non-binary SNPs, leaving %d SNPs in total." % (numRemoved, self.num_snps))
         return (num_snps,numRemoved)
-        
+
     def calculate_ld(self,chr_pos):
         # sort chr_pos first
         chr_pos = sorted(chr_pos,key=itemgetter(0,1))
