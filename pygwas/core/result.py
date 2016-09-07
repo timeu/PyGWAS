@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 
 
 def load_from_hdf5(filename):
-    f = h5py.File(filename,'r') 
+    f = h5py.File(filename,'r')
     quantiles_dict = {}
     stats =  {}
     if 'quantiles' in f:
@@ -28,7 +28,7 @@ def load_from_hdf5(filename):
     if 'ks_pval' in pvals_group.attrs:
         stats['ks_stats']['p_val'] = pvals_group.attrs['ks_pval']
     if 'med_pval' in pvals_group.attrs:
-        stats['med_pval'] =  pvals_group.attrs['med_pval'] 
+        stats['med_pval'] =  pvals_group.attrs['med_pval']
     if 'bh_thres' in pvals_group.attrs:
         stats['bh_thres_d'] = {'thes_pval': math.pow(10,-pvals_group.attrs['bh_thres'])}
     chromosomes = []
@@ -38,7 +38,7 @@ def load_from_hdf5(filename):
     macs = []
     additional_columns = {}
     chrs = map(lambda x:x[3:],f['pvalues'].keys())
-    
+
     for ix,chr in enumerate(chrs):
         chr_group = pvals_group['chr%s'% chr]
         chromosomes.extend([chr]*len(chr_group['positions']))
@@ -57,7 +57,7 @@ def load_from_hdf5(filename):
     scores = map(lambda x:math.pow(10,-1*x), scores)
     maf_dict = {'mafs':mafs,'macs':macs}
     return GWASResult(chrs,chromosomes,positions,scores,maf_dict,method,transformation,stats=stats,additional_columns=additional_columns)
-    
+
 
 def load_from_csv(filename):
     chromosomes =  []
@@ -87,13 +87,13 @@ def load_from_csv(filename):
                 for i,key in enumerate(add_header):
                     additional_columns[key].append(float(fields[(5+i)]))
     return GWASResult(chrs,chromosomes,positions,pvals,{'mafs':mafs,'macs':macs},additional_columns = additional_columns)
-            
-         
+
+
 
 
 class GWASResult(object):
 
-    
+
     def __init__(self,chrs,chromosomes,positions,pvals,maf_dict,method = 'N/A',transformation = None,stats = None,additional_columns = None,step_stats = None):
         self.ix_with_bad_pvalues = ix_with_bad_pvalues = numpy.where(pvals == 0.0)[0]
         if len(ix_with_bad_pvalues) > 0:
@@ -125,7 +125,7 @@ class GWASResult(object):
         #Calculate the Kolmogorov-Smirnov statistic
         self.stats['ks_stats'] = stats.calc_ks_stats(self.pvals)
         self.stats['quantiles_dict'] = stats.calculate_qqplot_data(self.pvals)
-        
+
 
     def get_top_snps(self,top_ratio=2500):
         data = numpy.core.records.fromrecords(zip(self.chromosomes, self.positions, self.pvals, self.maf_dict['mafs'], self.maf_dict['macs'],*self.additional_columns.values()),names='chr,positions,scores,mafs,macs')
@@ -135,8 +135,8 @@ class GWASResult(object):
             chr_data =chr_data[chr_data['scores'].argsort()[::]][:top_ratio]
             data_to_return.append(chr_data)
         return numpy.concatenate(data_to_return)
-         
-      
+
+
     def save_as_csv(self,csv_file):
         data = numpy.array(zip(self.chromosomes, self.positions, self.pvals, self.maf_dict['mafs'], self.maf_dict['macs'],*self.additional_columns.values()))
         data =data[numpy.lexsort((data[:,1],data[:,0]))]
@@ -150,17 +150,17 @@ class GWASResult(object):
                rows_to_write[0] = int(rows_to_write[0])
                rows_to_write[1] = int(rows_to_write[1])
                rows_to_write[4] = int(rows_to_write[4])
-               f.write(','.join(map(str,rows_to_write))+"\n")      
-        
-        
-    
+               f.write(','.join(map(str,rows_to_write))+"\n")
+
+
+
     def save_as_hdf5(self,hdf5_file):
         positions = self.positions
         chromosomes = self.chromosomes
         maf_dict = self.maf_dict
         scores = map(lambda x:-math.log10(x), self.pvals)
         quantiles_dict = self.stats['quantiles_dict']
-        f = h5py.File(hdf5_file,'w') 
+        f = h5py.File(hdf5_file,'w')
 
         # store quantiles
         quant_group = f.create_group('quantiles')
@@ -168,7 +168,7 @@ class GWASResult(object):
         log_quantiles_array = zip(quantiles_dict['exp_log_quantiles'],quantiles_dict['log_quantiles'])
         quant_group.create_dataset('quantiles',(len(quantiles_dict['quantiles']), 2),'f8',data=quantiles_array)
         quant_group.create_dataset('log_quantiles',(len(quantiles_dict['log_quantiles']), 2),'f8',data=log_quantiles_array)
-        
+
         #store pvalues
         pvals_group = f.create_group('pvalues')
         if len(self.ix_with_bad_pvalues) > 0:
@@ -204,5 +204,5 @@ class GWASResult(object):
             if len(chr_data.dtype) > 5:
                 for i,key in enumerate(self.additional_columns.keys()):
                     values = chr_data['f%s'% (5+i)]
-                    chr_group.create_dataset(key,values.shape,values.dtype,data=values) 
+                    chr_group.create_dataset(key,values.shape,values.dtype,data=values)
         f.close()

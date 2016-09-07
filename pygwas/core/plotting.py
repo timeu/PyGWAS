@@ -5,8 +5,11 @@ import h5py
 import math
 import logging
 import matplotlib
+import matplotlib.style
+matplotlib.style.use('default')
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import plot as pl
 
 
 SUPPORTED_FORMAT=('png','pdf')
@@ -29,12 +32,12 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15):
     bh_thres,bonferroni_threshold,max_score,num_scores,min_score = _get_gwas_infos(gwas_result)
     chr_label = ''
     data = _get_data(gwas_result)
-    offset = 0 
+    offset = 0
     markersize=3
     color_map = ['b', 'g', 'r', 'c', 'm']
     plt.figure(figsize=(11, 3.8))
     plt.axes([0.045, 0.15, 0.99, 0.61])
-    
+
     ticklist = []
     ticklabels = []
 
@@ -81,6 +84,22 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15):
         plt.savefig(output_file, format=format,dpi=300,bbox_inches='tight')
     plt.clf()
     plt.close()
+    return output_file
+
+
+
+def plot_qq(gwas_result,output_file):
+    format = os.path.splitext(output_file)[1][1:].strip().lower()
+    if format not in SUPPORTED_FORMAT:
+        raise Exception('%s not supported format'%format)
+    f, (ax1, ax2) = plt.subplots(1, 2,figsize=(10.8, 5))
+    label = [gwas_result.method]
+    quantiles = [gwas_result.stats['quantiles_dict']['quantiles']]
+    pl.simple_qqplot(quantiles, quantile_labels=label,ax=ax1)
+    log_quantiles = [gwas_result.stats['quantiles_dict']['log_quantiles']]
+    max_val = -math.log10(min(gwas_result.pvals))
+    pl.simple_log_qqplot(log_quantiles,quantile_labels=label,max_val=6,ax=ax2)
+    f.savefig(output_file,format=format)
     return output_file
 
 

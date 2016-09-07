@@ -1,3 +1,7 @@
+1.3.0
+--
+* Enhancement: Added functionality to generating QQ-Plots was added
+
 1.2.1
 --
 * Bugfix: Deal with genotypes that have the chromosome as integer array instead of string array.
