@@ -5,6 +5,7 @@ A container for functions which aim to analyze or process gwas results, for some
 import scipy as sp
 from scipy import stats
 import logging
+import math
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +75,8 @@ def get_quantiles(scores, num_dots=1000):
 
 
 
-def calculate_qqplot_data(pvals,num_dots=1000,max_val=6):
+def calculate_qqplot_data(pvals,num_dots=1000):
+    max_val = -math.log10(min(pvals))
     quantiles = get_quantiles(pvals, num_dots=num_dots)
     exp_quantiles = _getExpectedPvalueQuantiles_(num_dots)
     log_quantiles = get_log_quantiles(pvals, num_dots=num_dots, max_val=max_val)

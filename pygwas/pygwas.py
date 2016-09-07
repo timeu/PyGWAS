@@ -59,19 +59,21 @@ LOGGING = {
 
 CHR_POS_PATTERN=re.compile(r"^(\w):(\d+)$")
 
-SUPPORTED_FILE_EXT =  ('.hdf5','.csv')
+HDF5_FILE_EXT = ('.hdf5','.h5','.hdf')
+
+SUPPORTED_FILE_EXT =  HDF5_FILE_EXT  + ('.csv',)
 
 logging.config.dictConfig(LOGGING)
 log = logging.getLogger()
 
 def get_parser(program_license,program_version_message):
-    
-    snp_help ="""Position/region for LD calculation.\n 
+
+    snp_help ="""Position/region for LD calculation.\n
     There are two ways to specify the region/positions:\n
       1.) GWAS result file (*.csv or *.hdf5). The top fraction (see -r/--range paramter) of SNPs will be taken and LD will be calculated for those positions\n
       2.) chr:position (i.e. 2:25212). Specify midpoint and take +/- range (see -r/--range paramter) to calculate LD\n
     """
-    
+
     parser = argparse.ArgumentParser(description=program_license)
     parser.add_argument('-V', '--version', action='version', version=program_version_message)
     subparsers = parser.add_subparsers(title='subcommands',description='Choose a command to run',help='Following commands are supported')
@@ -99,13 +101,19 @@ def get_parser(program_license,program_version_message):
     plotter_parser.add_argument(dest="file", help="GWAS result file (.hdf5 or .csv)", metavar="FILE")
     plotter_parser.set_defaults(func=plot)
 
+
+    qq_plotter_parser = subparsers.add_parser('qqplot',help='Plot a QQ-plots for a GWAS result')
+    qq_plotter_parser.add_argument("-o",'--output',dest='output',required=True,help='The output image file')
+    qq_plotter_parser.add_argument(dest="file", help="GWAS result file (.hdf5 or .csv)", metavar="FILE")
+    qq_plotter_parser.set_defaults(func=qq_plot)
+
     stats_parser = subparsers.add_parser('stats',help='Retrieve some stats')
     stats_parser.add_argument("-t", "--type", dest="type",required=True, help="type of the statistics to return",choices=["all","pseudo","shapiro"])
     stats_parser.add_argument("-g", "--genotype", dest="genotype_folder", help="folder with the genotypes for the GWAS analysis", required=True,metavar="FOLDER")
     stats_parser.add_argument("-k", "--kinship", dest="kinship", help="Specify the file containing the kinship matrix. (otherwise default file is used or it's generated.)", metavar="FILE" )
     stats_parser.add_argument(dest="file", help="csv file containing phenotype values",  metavar="FILE")
     stats_parser.set_defaults(func=calculate_stats)
-    
+
     ld_parser = subparsers.add_parser('ld',help='Calculate and plot LD')
     ld_parser.add_argument(dest="genotype_file", help="genotype file", metavar="GENOTYPE FILE")
     ld_parser.add_argument(dest="output_file",help="output file (.hdf5 or .csv)",metavar="OUTPUT FILE")
@@ -166,7 +174,7 @@ def _get_indicies_(phen_acc,geno_acc):
     sd_indices_to_keep = list(sd_indices_to_keep)
     sd_indices_to_keep.sort()
     return (sd_indices_to_keep,pd_indices_to_keep)
-   
+
 
 def calculate_stats(args):
     phenotype_file = args['file']
@@ -227,11 +235,23 @@ def plot(args):
     if 'chr' in args and args['chr'] is not None and args['chr'] != '':
         chrs = [args['chr']]
     gwas_result = None
-    if ext == '.hdf5':
+    if ext in HDF5_FILE_EXT:
         gwas_result = result.load_from_hdf5(args['file'])
     else:
         gwas_result = result.load_from_csv(args['file'])
     plotting.plot_gwas_result(gwas_result,args['output'],chrs,args['macs'])
+
+
+def qq_plot(args):
+    _,ext = os.path.splitext(args['file'])
+    if ext not in SUPPORTED_FILE_EXT:
+        raise Exception('The input file must have one of the supported extensions: %s' % supported_extensions)
+    gwas_result = None
+    if ext in HDF5_FILE_EXT:
+        gwas_result = result.load_from_hdf5(args['file'])
+    else:
+        gwas_result = result.load_from_csv(args['file'])
+    plotting.plot_qq(gwas_result,args['output'])
 
 
 def run(args):
@@ -239,14 +259,14 @@ def run(args):
     if ext not in SUPPORTED_FILE_EXT:
         raise Exception('The output file must have one of the supported extensions: %s' % supported_extensions)
     gwas_result = perform_gwas(args['file'],args['analysis_method'], args['genotype_folder'],args['transformation'],args['kinship'])
-    if ext == '.hdf5':
+    if ext in HDF5_FILE_EXT:
         gwas_result.save_as_hdf5(args['outputfile'])
     else:
         gwas_result.save_as_csv(args['outputfile'])
     if args['calc_ld']:
         genotype_folder = args['genotype_folder']
         calc_ld_args = {'acession_file':args['file'],'positions':args['outputfile'],'genotype_file':os.path.join(genotype_folder,'all_chromosomes_binary.hdf5'),'range':2500}
-        if ext == '.hdf5':
+        if ext in HDF5_FILE_EXT:
             calc_ld_args['output_file'] = args['outputfile']
         else:
             calc_ld_args['output_file'] = 'LD_%s' % args['outputfile']
@@ -279,16 +299,16 @@ def calc_ld(args):
         _,ext = os.path.splitext(positions)
         if ext not in SUPPORTED_FILE_EXT:
             raise Exception('The input file must have one of the supported extensions: %s' % supported_extensions)
-        if ext  == '.hdf5':
+        if ext  in HDF5_FILE_EXT:
             gwas_result = result.load_from_hdf5(positions)
         else:
-            gwas_result =  result.load_from_csv(positions)          
+            gwas_result =  result.load_from_csv(positions)
         gwas_data = gwas_result.get_top_snps(range)
         chr_pos_list = zip(map(str,gwas_data['chr']),gwas_data['positions'])
-    chr_pos_list = sorted(chr_pos_list,key=itemgetter(0,1)) 
+    chr_pos_list = sorted(chr_pos_list,key=itemgetter(0,1))
     ld_data = genotypeData.calculate_ld(chr_pos_list)
-    _save_ld_data(args['output_file'],ld_data,chr_pos_list)   
-    
+    _save_ld_data(args['output_file'],ld_data,chr_pos_list)
+
 
 def calc_kinship(args):
     genotypeData = genotype.load_hdf5_genotype_data(args['genotype_file'])
@@ -297,10 +317,10 @@ def calc_kinship(args):
         K = genotypeData.get_ibs_kinship_matrix(chunk_size = 10000)
     elif type == 'ibd':
         K = genotypeData.get_ibd_kinship_matrix(chunk_size = 10000)
-    else: 
+    else:
         raise Exception('%s kinship type not supported' % type)
     kinship.save_kinship_to_file(args['output_file'],K,genotypeData.accessions,genotypeData.num_snps)
-    
+
 
 def perform_gwas(phenotype_file,analysis_method,genotype_folder,transformation=None,kinshipFile=None):
     phenData = phenotype.parse_phenotype_file(phenotype_file)  #load phenotype file
@@ -351,9 +371,9 @@ def _save_ld_data(output_file,ld_data,chr_pos_list):
     log.info('Saving LD data in %s ' % output_file)
     if ext not in SUPPORTED_FILE_EXT:
         raise Exception('The input file must have one of the supported extensions: %s' % supported_extensions)
-    if ext  == '.hdf5':
+    if ext  in HDF5_FILE_EXT:
         _save_ld_data_as_hdf5(output_file,ld_data,chr_pos_list)
-    else: 
+    else:
         _save_ld_data_as_csv(output_file,ld_data,chr_pos_list)
 
 def _save_ld_data_as_hdf5(output_file,ld_data,chr_pos_list):
@@ -373,19 +393,19 @@ def _save_ld_data_as_hdf5(output_file,ld_data,chr_pos_list):
         ld_dset[i] = ld_data[i][:i + 1]
     f.flush()
     f.close()
-   
+
 def _save_ld_data_as_csv(output_file,ld_data,chr_pos_list):
     with open(output_file,'w') as f:
         writer = csv.writer(f,delimiter=',')
         # write header
         header = ['']
-        header.extend(map(lambda x: '%s-%s' % (x[0],x[1]),chr_pos_list)) 
+        header.extend(map(lambda x: '%s-%s' % (x[0],x[1]),chr_pos_list))
         writer.writerow(header)
         for i,chr_pos in enumerate(chr_pos_list):
             row = [str(chr_pos)]
             row.extend(ld_data[i])
             writer.writerow(row)
-        
+
 
 def _get_chr_regions(chrs):
     grouped_chr = np.unique(chrs)
@@ -417,7 +437,7 @@ def _load_genotype_(folder):
     if os.path.isfile(hdf5_file):
         return genotype.load_hdf5_genotype_data(hdf5_file)
     raise Exception('No Genotype files in %s folder were found.' % folder)
-    
+
 def _load_accessions(accession_file):
     if os.path.isfile(accession_file):
         with open(accession_file,'r') as f:
