@@ -68,8 +68,11 @@ def load_from_csv(filename):
     additional_columns = {}
     chrs = []
     chr = None
+    is_pval = False
     with open(filename,'r') as f:
         header = f.readline().rstrip()
+        if header[2] == 'pvalue':
+            is_pval = True 
         add_header = header.split(",")[5:]
         for key in add_header:
             additional_columns[key] = []
@@ -85,7 +88,12 @@ def load_from_csv(filename):
             macs.append(int(fields[4]))
             if len(add_header) > 0:
                 for i,key in enumerate(add_header):
-                    additional_columns[key].append(float(fields[(5+i)]))
+                    addit_value = None
+                    if fields[(5+i)] != '':
+                        addit_value = float(fields[(5+i)])
+                    additional_columns[key].append(addit_value)
+    if is_pval is False:
+        pvals = map(lambda x:math.pow(10,-1*x),pvals)
     return GWASResult(chrs,chromosomes,positions,pvals,{'mafs':mafs,'macs':macs},additional_columns = additional_columns)
 
 
