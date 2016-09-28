@@ -40,7 +40,7 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15):
 
     ticklist = []
     ticklabels = []
-
+    
     for ix,chr in enumerate(chrs):
         if chr is None:
             continue
@@ -48,7 +48,7 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15):
         newPosList = [offset + pos for pos in chr_data['positions']]
         color_ix = ix
         if color_ix >= len(color_map):
-            color_ix = (ix+1) % color_ix
+            color_ix = color_ix % len(color_map) 
         color = color_map[color_ix]
         plt.plot(newPosList,chr_data['scores'],".", markersize=markersize, alpha=0.7, mew=0,color=color)
         oldOffset = offset
