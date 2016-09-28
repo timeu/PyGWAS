@@ -1,3 +1,9 @@
+1.3.1
+--
+* Bugfix: Make sure to properly cycle chromosome colors when plotting
+* Bugfix: Make sure to convert scores to pvalues when loading a CSV GWAS result
+* Bugfix: Return correct chromosomes for genotypes that don't start with Chr1
+
 1.3.0
 --
 * Enhancement: Added functionality to generating QQ-Plots was added
