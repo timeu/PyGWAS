@@ -181,7 +181,7 @@ class AbstractGenotype(object):
     def get_chr_from_index(self,ix):
         for i,chr_region in enumerate(self.chr_regions):
             if chr_region[0] <= ix and chr_region[1] >= ix:
-                return i+1
+                return int(self.chrs[i])
         raise Exception('Index %s outside of chr_regions' %ix)
 
     def get_mafs(self):
