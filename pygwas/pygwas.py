@@ -20,6 +20,7 @@ from core import statistics as stats
 from core import phenotype
 from core import genotype
 from core.result import GWASResult
+from core import enrichment
 from core import result
 from core import plotting
 import numpy as np
@@ -28,6 +29,7 @@ import os
 import sys
 import csv
 import h5py
+import json
 from operator import itemgetter
 
 LOGGING = {
@@ -127,6 +129,15 @@ def get_parser(program_license,program_version_message):
     kinship_parser.add_argument(dest="output_file",help="output file (.hdf5)",metavar="OUTPUT FILE")
     kinship_parser.add_argument("-t", "--type", dest="type",required=True, help="type of the kinship",choices=["ibs","ibd"])
     kinship_parser.set_defaults(func=calc_kinship)
+
+    enrichment_parser = subparsers.add_parser('enrichment',help='Enrichment Analysis')
+    enrichment_parser.add_argument(dest="genotype_folder", help="genotype folder", metavar="GENOTYPE FOLDER")
+    enrichment_parser.add_argument(dest="genes_file",help="file with genes + locations",metavar="GENES FILE")
+    enrichment_parser.add_argument(dest="gwas_file",help="file with pvalues (.hdf5)",metavar="PVALUES FILE")
+    enrichment_parser.add_argument("-w", "--window_size", dest="window_size",default=20000, type=int, help="Window size around genes (default: 20kb)",)
+    enrichment_parser.add_argument("-p", "--permutation_count", dest="permutation_count",default=10000, type=int, help="Number of permutations (default: 10.000)",)
+    enrichment_parser.add_argument("-t", "--top_snps_count", dest="top_snps_count",default=1000, type=int, help="Number of top SNPs to check enrichment for (default: 1000)",)
+    enrichment_parser.set_defaults(func=calc_enrichment)
 
     return parser
 
@@ -320,6 +331,33 @@ def calc_kinship(args):
     else:
         raise Exception('%s kinship type not supported' % type)
     kinship.save_kinship_to_file(args['output_file'],K,genotypeData.accessions,genotypeData.num_snps)
+
+
+def calc_enrichment(args):
+    genotype_folder = args['genotype_folder']
+    genes_file = args['genes_file']
+    gwas_file = args['gwas_file']
+    log.info('Retrieving genes')
+    genes = None
+    with open(genes_file,'r') as f:
+        genes = json.load(f)
+
+    gwas_result = None
+    _,input_ext = os.path.splitext(gwas_file)
+    log.info('Opening GWAS file')
+    if input_ext == '.csv':
+        gwas_result = result.load_from_csv(gwas_file)
+    else:
+        gwas_result = result.load_from_hdf5(gwas_file)
+    log.info('Loading genotype file')
+    genotype_data = _load_genotype_(genotype_folder)
+    top_snps = gwas_result.get_top_snps(args['top_snps_count'])
+    top_snps.sort(order=['scores'])
+    top_snps = top_snps[:args['top_snps_count']]
+    pval = enrichment.enrichment(genes,genotype_data,top_snps,args['window_size'],args['permutation_count'])
+    print pval
+    return pval
+
 
 
 def perform_gwas(phenotype_file,analysis_method,genotype_folder,transformation=None,kinshipFile=None):
