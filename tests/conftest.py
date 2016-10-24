@@ -49,7 +49,7 @@ def ld_filename():
 
 @pytest.fixture
 def genes():
-    return genes_for_enrichment[:]
+    return {'gene_set':genes_for_enrichment[:]}
 
 
 @pytest.fixture

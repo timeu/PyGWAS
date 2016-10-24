@@ -25,7 +25,7 @@ class permute():
             testtarget = np.hstack((self.target[step:],self.target[:step]))
             return np.sum(testtarget*self.match)
 
-    def permute_p_val(self, num):
+    def permute_p_val(self, num, key='gene_set'):
         ' Do multiple rotations to obtain a p-value '
         originalmatch = self.rotate_and_count(0)
         num_reach_original = 0
@@ -33,24 +33,26 @@ class permute():
         num = float(num)
         for ix,step in enumerate(randomset):
             if ix % (num / 10) == 0:
-                logger.info('Permutation %s/%s' % (ix,num),extra={'progress':(5 + ix/num*95)})
+                logger.info('Permutation %s/%s' % (ix,num),extra={'progress':(5 + ix/num*95),'key':key})
             if self.rotate_and_count(step)>=originalmatch:
                 num_reach_original += 1
         return float(num_reach_original)/num
 
-def enrichment(genes,genotype_data,top_snps,windowSize,numberOfPermutations):
+def enrichment(genes_lists,genotype_data,top_snps,windowSize,numberOfPermutations):
     chr_regions = genotype_data.chr_regions
     pos_chr_list= np.asarray(zip(genotype_data.chromosomes,genotype_data.positions),dtype='int32')
     logger.info('Retrieve TOP SNP Matrix')
     top_snps_matrix = _get_snps_snps_matrix(pos_chr_list,top_snps,chr_regions)
-    logger.info('Retrieve Gene Matrix (windowsize:%s)' % windowSize)
-    gene_matrix = _get_gene_snps_matrix(pos_chr_list,genes,chr_regions,windowSize)
-    per = permute()
-    per.load_vectors(gene_matrix,top_snps_matrix)
-    logger.info('Starting permutation test (#: %s)' % numberOfPermutations,extra={'progress':5})
-    pval = per.permute_p_val(numberOfPermutations)
-    logger.info('Finished permutation test',extra={'progress':95})
-    return pval
+    pvals = {}
+    for key,genes in genes_lists.items():
+        logger.info('Retrieve Gene Matrix (windowsize:%s) for %s' % (windowSize,key))
+        gene_matrix = _get_gene_snps_matrix(pos_chr_list,genes,chr_regions,windowSize)
+        per = permute()
+        per.load_vectors(gene_matrix,top_snps_matrix)
+        logger.info('Starting permutation for %s (#: %s)' % (key, numberOfPermutations),extra={'progress':5,'key':key})
+        pvals[key] = per.permute_p_val(numberOfPermutations,key=key)
+        logger.info('Finished permutation for %s ' % key,extra={'progress':95,'key':key})
+    return pvals
 
 def _get_snps_snps_matrix(snps,top_snps,chr_regions):
     # sort by chr and position

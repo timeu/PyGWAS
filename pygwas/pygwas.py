@@ -131,9 +131,9 @@ def get_parser(program_license,program_version_message):
     kinship_parser.set_defaults(func=calc_kinship)
 
     enrichment_parser = subparsers.add_parser('enrichment',help='Enrichment Analysis')
-    enrichment_parser.add_argument(dest="genotype_folder", help="genotype folder", metavar="GENOTYPE FOLDER")
-    enrichment_parser.add_argument(dest="genes_file",help="file with genes + locations",metavar="GENES FILE")
-    enrichment_parser.add_argument(dest="gwas_file",help="file with pvalues (.hdf5)",metavar="PVALUES FILE")
+    enrichment_parser.add_argument(dest="genotype_folder", help="genotype folder", metavar="GENOTYPE-FOLDER")
+    enrichment_parser.add_argument(dest="gwas_file",help="file with pvalues (.hdf5)",metavar="PVALUES-FILE")
+    enrichment_parser.add_argument("-g", "--gene_files", dest="genes_file",help="files with genes + locations (multiple can be passed)",required=True,nargs='+')
     enrichment_parser.add_argument("-w", "--window_size", dest="window_size",default=20000, type=int, help="Window size around genes (default: 20kb)",)
     enrichment_parser.add_argument("-p", "--permutation_count", dest="permutation_count",default=10000, type=int, help="Number of permutations (default: 10.000)",)
     enrichment_parser.add_argument("-t", "--top_snps_count", dest="top_snps_count",default=1000, type=int, help="Number of top SNPs to check enrichment for (default: 1000)",)
@@ -335,12 +335,13 @@ def calc_kinship(args):
 
 def calc_enrichment(args):
     genotype_folder = args['genotype_folder']
-    genes_file = args['genes_file']
+    genes_files = args['genes_file']
     gwas_file = args['gwas_file']
     log.info('Retrieving genes')
-    genes = None
-    with open(genes_file,'r') as f:
-        genes = json.load(f)
+    genes = {}
+    for genes_file in genes_files:
+        with open(genes_file,'r') as f:
+            genes[os.path.basename(genes_file)] = json.load(f)
 
     gwas_result = None
     _,input_ext = os.path.splitext(gwas_file)
@@ -355,7 +356,7 @@ def calc_enrichment(args):
     top_snps.sort(order=['scores'])
     top_snps = top_snps[:args['top_snps_count']]
     pval = enrichment.enrichment(genes,genotype_data,top_snps,args['window_size'],args['permutation_count'])
-    print pval
+    print json.dumps(pval)
     return pval
 
 

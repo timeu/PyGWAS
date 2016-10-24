@@ -1,3 +1,7 @@
+1.5.0
+--
+* Enhancement: Support for passing multiple candidate gene list files added
+
 1.4.0
 --
 * Enhancement: Support for simple enrichment analysis added
