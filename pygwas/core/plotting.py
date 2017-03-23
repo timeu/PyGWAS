@@ -14,70 +14,82 @@ import plot as pl
 
 SUPPORTED_FORMAT=('png','pdf')
 
-def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15):
+def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15, marker_size=10):
     chr_map = None
     if chrs is not None:
         chr_map = set(chrs)
     chrs = gwas_result.chrs
     if chr_map is not None:
-        for ix,chr in enumerate(chrs):
+        for ix, chr in enumerate(chrs):
             if chr not in chr_map:
                 chrs[ix] = None
 
-    if len(filter(lambda x: x is not None,chrs)) == 0:
+    if len(filter(lambda x: x is not None, chrs)) == 0:
         raise ValueError('Chromosomes %s  not found' % chr_map)
     format = os.path.splitext(output_file)[1][1:].strip().lower()
     if format not in SUPPORTED_FORMAT:
         raise Exception('%s not supported format'%format)
-    bh_thres,bonferroni_threshold,max_score,num_scores,min_score = _get_gwas_infos(gwas_result)
+    bh_thres, bonferroni_threshold, max_score, num_scores, min_score = _get_gwas_infos(gwas_result)
     chr_label = ''
     data = _get_data(gwas_result)
     offset = 0
-    markersize=3
-    color_map = ['b', 'g', 'r', 'c', 'm']
+    markersize = marker_size
+    color_map = ['#4F94CD', '#36648B']
     plt.figure(figsize=(11, 3.8))
     plt.axes([0.045, 0.15, 0.99, 0.61])
 
     ticklist = []
     ticklabels = []
-    
-    for ix,chr in enumerate(chrs):
+    is_single_chr = len([chr for chr in chrs if chr is not None]) == 1
+    for ix, chr in enumerate(chrs):
         if chr is None:
             continue
-        chr_data = _get_chr_data(data,chr,mac)
+        chr_data = _get_chr_data(data, chr, mac)
         newPosList = [offset + pos for pos in chr_data['positions']]
         color_ix = ix
         if color_ix >= len(color_map):
-            color_ix = color_ix % len(color_map) 
+            color_ix = color_ix % len(color_map)
         color = color_map[color_ix]
-        plt.plot(newPosList,chr_data['scores'],".", markersize=markersize, alpha=0.7, mew=0,color=color)
+        plt.plot(newPosList, chr_data['scores'], ".", markersize=markersize, alpha=1, mew=0, color=color)
         oldOffset = offset
         chr_end = chr_data['positions'][-1] if len(chr_data['positions']) > 0 else 0
         offset =+ newPosList[-1] if len(newPosList) > 0 else 0
-        for j in range(oldOffset, offset, 4000000):
-            ticklist.append(j)
-        for j in range(0, chr_end, 4000000):
-            if j % 8000000 == 0 and j < chr_end - 4000000 :
-                ticklabels.append(j / 1000000)
-            else:
-                ticklabels.append("")
+        if is_single_chr:
+            for j in range(oldOffset, offset, 4000000):
+                ticklist.append(j)
+            for j in range(0, chr_end, 4000000):
+                if j % 8000000 == 0 and j < chr_end - 4000000 :
+                    ticklabels.append(j / 1000000)
+                else:
+                    ticklabels.append("")
+        else:
+            ticklist.append(oldOffset + (offset-oldOffset)/2)
+            ticklabels.append('Chr %s' % chr if len(chr)==1 else chr )
+
     x_range = offset
-    max_score = max([bonferroni_threshold,bh_thres,max_score])
+    max_score = max([bonferroni_threshold, bh_thres,max_score])
 
     score_range = max_score - min_score
     padding = 0.05*(score_range)
-    bonf_handle, = plt.plot([0, x_range], [bonferroni_threshold, bonferroni_threshold],color='r', linestyle="--",linewidth = 0.5)
+    bonf_handle, = plt.plot([0, x_range], [bonferroni_threshold, bonferroni_threshold], color='r', linestyle="--", linewidth=1, alpha=.5)
     if bh_thres is not None:
-        bh_handle, = plt.plot([0, x_range], [bh_thres, bh_thres], color='b', linestyle='--',linewidth = 0.5)
-        plt.figlegend((bonf_handle,bh_handle),('Bonferroni','Benjamini Hochberg'),'upper right')
+        bh_handle, = plt.plot([0, x_range], [bh_thres, bh_thres], color='b', linestyle='--', linewidth=1, alpha=.5)
+        plt.figlegend((bonf_handle, bh_handle), ('Bonferroni', 'Benjamini Hochberg'), 'upper right')
     else:
-        plt.figlegend((bonf_handle,),('Bonferroni',),'upper right')
+        plt.figlegend((bonf_handle,), ('Bonferroni',), 'upper right')
     plt.axis([-x_range * 0.01, x_range * 1.01, min_score - padding, max_score + padding])
-    plt.xticks(ticklist, ticklabels, fontsize='x-small')
-    plt.ylabel('$-log(p-$value$)$',size="large")
-    plt.xlabel('Mb')
-    if len(chrs) == 1:
-         plt.title('Chromosome %s' % chr[3])
+    ax = plt.gca()
+    ax.xaxis.set_tick_params(direction='out')
+    ax.xaxis.set_ticks_position('bottom')
+    plt.xticks(ticklist, ticklabels)
+    plt.ylabel('$-log($p-value$)$')
+
+    if is_single_chr:
+        chr = [chr for chr in chrs if chr is not None][0]
+        plt.xlabel('Mb')
+        plt.title('Chromosome %s' % chr if len(chr) < 4 else chr[3])
+    else:
+        plt.xlabel('Chromosome')
     if format == 'pdf':
         plt.savefig(output_file, format=format)
     else:

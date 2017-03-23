@@ -99,6 +99,7 @@ def get_parser(program_license,program_version_message):
     plotter_parser.add_argument('-c','--chr',dest='chr',
 	 help='Chromosome to plot. If not specified prints all chromosomes (Default:None)',default=None)
     plotter_parser.add_argument('-m','--macs',dest='macs',default=15,type=int,help='Minor Allele Count filter (Default: 15)')
+    plotter_parser.add_argument('-s','--size',dest='marker_size',default=10,type=int,help='Size of the markers in the Manhattan plot (Default: 10)')
     plotter_parser.add_argument("-o",'--output',dest='output',required=True,help='The output image file')
     plotter_parser.add_argument(dest="file", help="GWAS result file (.hdf5 or .csv)", metavar="FILE")
     plotter_parser.set_defaults(func=plot)
@@ -243,6 +244,7 @@ def plot(args):
     if ext not in SUPPORTED_FILE_EXT:
         raise Exception('The input file must have one of the supported extensions: %s' % supported_extensions)
     chrs = None
+    marker_size = args['marker_size']
     if 'chr' in args and args['chr'] is not None and args['chr'] != '':
         chrs = [args['chr']]
     gwas_result = None
@@ -250,7 +252,7 @@ def plot(args):
         gwas_result = result.load_from_hdf5(args['file'])
     else:
         gwas_result = result.load_from_csv(args['file'])
-    plotting.plot_gwas_result(gwas_result,args['output'],chrs,args['macs'])
+    plotting.plot_gwas_result(gwas_result,args['output'],chrs,args['macs'],marker_size=marker_size)
 
 
 def qq_plot(args):

@@ -30,7 +30,7 @@ def geno():
 
 
 @pytest.fixture
-def kinship():
+def kinship():phenotype
     return None
 
 @pytest.fixture
