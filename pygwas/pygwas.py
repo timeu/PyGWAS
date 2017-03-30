@@ -227,7 +227,7 @@ def convert(args):
     if input_ext == output_ext:
         raise Exception('use different file extension for input (%s) and output file (%s)' % (input_ext,output_ext))
     if input_ext not in SUPPORTED_FILE_EXT:
-        raise Exception('The input file must have one of the supported extensions: %s' % SUPPORTED_FILE_EXT)
+        raise Exception('The input file must have one of the supported extensions: %s' % str(SUPPORTED_FILE_EXT))
     if output_ext not in SUPPORTED_FILE_EXT:
         raise Exception('The output file must have one of the supported extensions: (%s)' % ', '.join(SUPPORTED_FILE_EXT))
     gwas_result = None
@@ -242,7 +242,7 @@ def convert(args):
 def plot(args):
     _,ext = os.path.splitext(args['file'])
     if ext not in SUPPORTED_FILE_EXT:
-        raise Exception('The input file must have one of the supported extensions: %s' % supported_extensions)
+        raise Exception('The input file must have one of the supported extensions: %s' % str(SUPPORTED_FILE_EXT))
     chrs = None
     marker_size = args['marker_size']
     if 'chr' in args and args['chr'] is not None and args['chr'] != '':
@@ -258,7 +258,7 @@ def plot(args):
 def qq_plot(args):
     _,ext = os.path.splitext(args['file'])
     if ext not in SUPPORTED_FILE_EXT:
-        raise Exception('The input file must have one of the supported extensions: %s' % supported_extensions)
+        raise Exception('The input file must have one of the supported extensions: %s' % str(SUPPORTED_FILE_EXT))
     gwas_result = None
     if ext in HDF5_FILE_EXT:
         gwas_result = result.load_from_hdf5(args['file'])
@@ -270,7 +270,7 @@ def qq_plot(args):
 def run(args):
     _,ext = os.path.splitext(args['outputfile'])
     if ext not in SUPPORTED_FILE_EXT:
-        raise Exception('The output file must have one of the supported extensions: %s' % supported_extensions)
+        raise Exception('The output file must have one of the supported extensions: %s' % str(SUPPORTED_FILE_EXT))
     gwas_result = perform_gwas(args['file'],args['analysis_method'], args['genotype_folder'],args['transformation'],args['kinship'])
     if ext in HDF5_FILE_EXT:
         gwas_result.save_as_hdf5(args['outputfile'])
@@ -311,7 +311,7 @@ def calc_ld(args):
         # get the SNPs
         _,ext = os.path.splitext(positions)
         if ext not in SUPPORTED_FILE_EXT:
-            raise Exception('The input file must have one of the supported extensions: %s' % supported_extensions)
+            raise Exception('The input file must have one of the supported extensions: %s' % str(SUPPORTED_FILE_EXT))
         if ext  in HDF5_FILE_EXT:
             gwas_result = result.load_from_hdf5(positions)
         else:
@@ -411,7 +411,7 @@ def _save_ld_data(output_file,ld_data,chr_pos_list):
     _,ext = os.path.splitext(output_file)
     log.info('Saving LD data in %s ' % output_file)
     if ext not in SUPPORTED_FILE_EXT:
-        raise Exception('The input file must have one of the supported extensions: %s' % supported_extensions)
+        raise Exception('The input file must have one of the supported extensions: %s' % str(SUPPORTED_FILE_EXT))
     if ext  in HDF5_FILE_EXT:
         _save_ld_data_as_hdf5(output_file,ld_data,chr_pos_list)
     else:
@@ -495,3 +495,4 @@ def _get_kinship_file_(folder):
 
 if __name__ == '__main__':
     sys.exit(main())
+SUPPORTED_FILE_EXT
