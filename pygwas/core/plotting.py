@@ -109,8 +109,8 @@ def plot_qq(gwas_result,output_file):
     quantiles = [gwas_result.stats['quantiles_dict']['quantiles']]
     pl.simple_qqplot(quantiles, quantile_labels=label,ax=ax1)
     log_quantiles = [gwas_result.stats['quantiles_dict']['log_quantiles']]
-    max_val = -math.log10(min(gwas_result.pvals))
-    pl.simple_log_qqplot(log_quantiles,quantile_labels=label,max_val=6,ax=ax2)
+    max_val = max(gwas_result.stats['quantiles_dict']['exp_log_quantiles'])
+    pl.simple_log_qqplot(log_quantiles,quantile_labels=label,max_val=max_val,ax=ax2)
     f.savefig(output_file,format=format)
     return output_file
 
