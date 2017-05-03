@@ -1,3 +1,9 @@
+1.7.0
+--
+* Enhancement: Add support to transform phenotypes from the CLI
+* Enhancement: Allow to specifiy transformation when calculating statistics
+* Enhancement: Apply transformation before running GWAS when specified
+
 1.6.1
 --
 * Bugfix: Fix QQ plotting function
