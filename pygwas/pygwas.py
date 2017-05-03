@@ -78,10 +78,11 @@ def get_parser(program_license,program_version_message):
 
     parser = argparse.ArgumentParser(description=program_license)
     parser.add_argument('-V', '--version', action='version', version=program_version_message)
+    parser.add_argument('-l', '--loglevel',dest='log_level', help='Set log level', default='INFO', choices=['DEBUG','INFO','WARNING','ERROR'])
     subparsers = parser.add_subparsers(title='subcommands',description='Choose a command to run',help='Following commands are supported')
     analysis_parser = subparsers.add_parser('run',help='Run a GWAS analysis')
 
-    analysis_parser.add_argument("-t", "--transformation", dest="transformation", help="Apply a transformation to the data. Default[None]", choices=["log", "sqrt", "exp", "sqr", "arcsin_sqrt", "box_cox"])
+    analysis_parser.add_argument("-t", "--transformation", dest="transformation", help="Apply a transformation to the data. Default[None]", default="none", choices=phenotype.SUPPORTED_TRANSFORMATIONS)
     analysis_parser.add_argument("-a", "--analysis_method", dest="analysis_method", help="analyis method to use",required=True,choices=["lm", "emma", "emmax", "kw", "ft", "emmax_anova", "lm_anova", "emmax_step", "lm_step","loc_glob_mm","amm"])
     analysis_parser.add_argument("-g", "--genotype", dest="genotype_folder", help="folder with the genotypes for the GWAS analysis", required=True,metavar="FOLDER")
     analysis_parser.add_argument("-k", "--kinship", dest="kinship", help="Specify the file containing the kinship matrix. (otherwise default file is used or it's generated.)", metavar="FILE" )
@@ -111,8 +112,9 @@ def get_parser(program_license,program_version_message):
     qq_plotter_parser.set_defaults(func=qq_plot)
 
     stats_parser = subparsers.add_parser('stats',help='Retrieve some stats')
-    stats_parser.add_argument("-t", "--type", dest="type",required=True, help="type of the statistics to return",choices=["all","pseudo","shapiro"])
-    stats_parser.add_argument("-g", "--genotype", dest="genotype_folder", help="folder with the genotypes for the GWAS analysis", required=True,metavar="FOLDER")
+    stats_parser.add_argument("-s", "--type", dest="type",required=True, help="type of the statistics to return",choices=["all","pseudo","shapiro"])
+    stats_parser.add_argument("-t", "--transformation", dest="transformation",default='none', help="transformation to apply",choices=phenotype.SUPPORTED_TRANSFORMATIONS)
+    stats_parser.add_argument("-g", "--genotype", dest="genotype_folder", help="folder with the genotypes for the GWAS analysis", metavar="FOLDER")
     stats_parser.add_argument("-k", "--kinship", dest="kinship", help="Specify the file containing the kinship matrix. (otherwise default file is used or it's generated.)", metavar="FILE" )
     stats_parser.add_argument(dest="file", help="csv file containing phenotype values",  metavar="FILE")
     stats_parser.set_defaults(func=calculate_stats)
@@ -140,6 +142,14 @@ def get_parser(program_license,program_version_message):
     enrichment_parser.add_argument("-t", "--top_snps_count", dest="top_snps_count",default=1000, type=int, help="Number of top SNPs to check enrichment for (default: 1000)",)
     enrichment_parser.set_defaults(func=calc_enrichment)
 
+    transformation_parser = subparsers.add_parser('transform',help='Transform phenotype')
+    transformation_parser.add_argument(dest="file", help="csv file containing phenotype values",  metavar="FILE")
+    transformation_parser.add_argument("-t", "--transformation", default='most_normal', dest="transformation",help="transformation to use (default: use the most normal one", choices=phenotype.SUPPORTED_TRANSFORMATIONS)
+    transformation_parser.add_argument("-o",'--output',dest='output',required=True,help='The output of the transformed phenotype file')
+    transformation_parser.set_defaults(func=transform_phenotype)
+
+
+
     return parser
 
 
@@ -166,6 +176,8 @@ USAGE
     parser = get_parser(program_license,program_version_message)
     args = vars(parser.parse_args())
     try:
+        log_level = args['log_level']
+        log.setLevel(log_level)
         args['func'](args)
         return 0
     except KeyboardInterrupt:
@@ -189,33 +201,37 @@ def _get_indicies_(phen_acc,geno_acc):
 
 
 def calculate_stats(args):
+    statistics = {}
     phenotype_file = args['file']
     genotype_folder = args['genotype_folder']
     stat_type =args['type']
+    transformation = args['transformation']
     if 'phen_data' in args:
         phenData = args['phen_data']
     else:
         phenData = phenotype.parse_phenotype_file(phenotype_file)
-    genotypeData = _load_genotype_(genotype_folder)
     phenData.convert_to_averages()
-    sd_indices_to_keep,pd_indices_to_keep = _get_indicies_(phenData.ecotypes,genotypeData.accessions)
-    phenData.filter_ecotypes(pd_indices_to_keep)
-    accessions = genotypeData.accessions[sd_indices_to_keep]
-    K = None
-    phen_vals = phenData.values
-    kinship_file = args.get('kinship',None)
-    if kinship_file is None:
-        kinship_file = _get_kinship_file_(genotype_folder)
-    K = kinship.load_kinship_from_file(kinship_file, accessions.tolist())['k']
-    statistics = {}
-    if stat_type == 'all':
-        statistics['pseudo_heritability'] = gwas.calculate_pseudo_heritability(phen_vals,K)
-        statistics['shapiro'] = stats.calculate_sp_pval(phen_vals)
-    elif stat_type == 'pseudo':
-        statistics['pseudo_heritability'] = gwas.calculate_pseudo_heritability(phen_vals,K)
-    elif stat_type == 'kolmogorov':
-        statistics['shapiro'] = stats.calculate_sp_pval(phen_vals)
-    else: raise Exception('%s not supported' % stat_type)
+    statistics['transformation'] = phenData.transform(transformation)
+    if stat_type not in ('shapiro','all','pseudo'):
+        raise Exception('%s not supported' % stat_type)
+    elif stat_type in ('all','pseudo') and genotype_folder is None:
+        raise Exception('%s for the stat_type shapiro and all, you need to provide specifiy the genotype_folder')
+
+    if genotype_folder:
+        genotypeData = _load_genotype_(genotype_folder)
+        sd_indices_to_keep,pd_indices_to_keep = _get_indicies_(phenData.ecotypes,genotypeData.accessions)
+        phenData.filter_ecotypes(pd_indices_to_keep)
+        accessions = genotypeData.accessions[sd_indices_to_keep]
+        if stat_type == 'all' or stat_type == 'pseudo':
+            K = None
+            kinship_file = args.get('kinship',None)
+            if kinship_file is None:
+                kinship_file = _get_kinship_file_(genotype_folder)
+            K = kinship.load_kinship_from_file(kinship_file, accessions.tolist())['k']
+            statistics['pseudo_heritability'] = gwas.calculate_pseudo_heritability(phenData.values,K)
+    if stat_type == 'all' or stat_type == 'shapiro':
+        statistics['shapiro'] = stats.calculate_sp_pval(phenData.values)
+
     print statistics
     return statistics
 
@@ -368,7 +384,7 @@ def perform_gwas(phenotype_file,analysis_method,genotype_folder,transformation=N
     additional_columns = {}
     genotypeData = _load_genotype_(genotype_folder)
     K = None
-    n_filtered_snps = _prepare_data_(genotypeData,phenData)
+    n_filtered_snps = _prepare_data_(genotypeData,phenData,transformation)
     phen_vals = phenData.values
     if analysis_method in ['emma', 'emmax', 'emmax_anova', 'emmax_step', 'loc_glob_mm','amm']:
         #Load genotype file (in binary format)
@@ -404,7 +420,18 @@ def perform_gwas(phenotype_file,analysis_method,genotype_folder,transformation=N
                 if len(betas) > 1:
                     additional_columns['beta1'] = betas[1]
 
-    return GWASResult(genotypeData.chrs,genotypeData.chromosomes,genotypeData.positions,pvals,genotypeData.get_mafs(),method = analysis_method,transformation = transformation,additional_columns = additional_columns)
+    return GWASResult(genotypeData.chrs,genotypeData.chromosomes,genotypeData.positions,pvals,genotypeData.get_mafs(),method = analysis_method,transformation = phenData.transformation,additional_columns = additional_columns)
+
+
+def transform_phenotype(args):
+    phenotype_file = args['file']
+    output_file = args['output']
+    transformation = args['transformation']
+    phenData = phenotype.parse_phenotype_file(phenotype_file)
+    trans_type = phenData.transform(transformation)
+    phenData.write_to_file(output_file)
+    print trans_type
+    return trans_type
 
 
 def _save_ld_data(output_file,ld_data,chr_pos_list):
@@ -459,16 +486,17 @@ def _get_chr_regions(chrs):
             chr_regions.append((start,end))
         start = end
     chr_regions.append((start,len(chrs)))
+
     return chr_regions,grouped_chr
 
-def _prepare_data_(genotypeData, phenData,with_replicates=False):
+def _prepare_data_(genotypeData, phenData,transformation=None):
     """
     Coordinates phenotype and snps data for different mapping methods.
     """
-    if not with_replicates:
-        log.info('Converting replicates of phenotypes to averages')
-        phenData.convert_to_averages()
+    log.info('Converting replicates of phenotypes to averages')
+    phenData.convert_to_averages()
     d = genotypeData.coordinate_w_phenotype_data(phenData)
+    phenData.transform(transformation)
     return d['n_filtered_snps']
 
 
@@ -495,4 +523,4 @@ def _get_kinship_file_(folder):
 
 if __name__ == '__main__':
     sys.exit(main())
-SUPPORTED_FILE_EXT
+

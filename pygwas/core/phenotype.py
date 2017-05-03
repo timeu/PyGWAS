@@ -6,11 +6,12 @@ import logging
 
 log = logging.getLogger(__name__)
 
+SUPPORTED_TRANSFORMATIONS = ("none","log", "sqrt", "exp", "sqr", "arcsin_sqrt", "box_cox","ascombe", "most_normal")
 
 class Phenotype(object):
     """
     A class that encapsulates phenotype values and provides basic functionality for these.
-    
+
     This is an update of an older class.
     """
 
@@ -39,7 +40,7 @@ class Phenotype(object):
     @transformation.setter
     def transformation(self,transformation):
         self._transformation = transformation
-   
+
     @property
     def phenotype_id(self):
         return self._phenotype_id
@@ -55,7 +56,7 @@ class Phenotype(object):
     @property
     def ecotypes(self):
         return self._ecotypes
-    
+
     @ecotypes.setter
     def ecotypes(self,ecotypes):
         self._ecotypes = ecotypes
@@ -63,7 +64,7 @@ class Phenotype(object):
     @property
     def raw_values(self):
         return self._raw_values
-    
+
     @raw_values.setter
     def raw_values(self,raw_values):
         self._raw_values = raw_values
@@ -73,7 +74,7 @@ class Phenotype(object):
     def get_pseudo_heritability(self,K):
         """
         Returns the REML estimate of the heritability.
-        
+
         methods: 'avg' (averages), 'repl' (replicates)
         """
         from scipy import stats
@@ -105,7 +106,7 @@ class Phenotype(object):
         if len(phen_vals) == len(set(phen_vals)):
             lmm.add_random_effect(K)
         else:
-            Z = self.get_incidence_matrix(pid)
+            Z = self.get_incidence_matrix()
             lmm.add_random_effect(Z * K * Z.T)
         r1 = lmm.get_REML()
         ll1 = r1['max_ll']
@@ -128,6 +129,11 @@ class Phenotype(object):
         blup_residuals = Y - u_mean_pred
         return {'pseudo_heritability':r1['pseudo_heritability'], 'pval':pval, 'u_blup':u_mean_pred, 'blup_residuals':blup_residuals}
 
+    def has_replicates(self):
+        ets = map(int, self.ecotypes)
+        num_vals = len(ets)
+        num_ets = len(set(ets))
+        return num_vals != num_ets
 
     # TODO move to linear_models
     def get_broad_sense_heritability(self):
@@ -163,51 +169,51 @@ class Phenotype(object):
             self.transformation = '%s(' + self.transformation + ')' % transformation
         self.values = values.tolist()
 
-    def log_transform(self, method='standard'):
+    def _log_transform(self, method='standard'):
         a = sp.array(self.values)
         if method == 'standard':
-            vals = sp.log((a - min(a)) + 0.1 * sp.std(a))
+            vals = sp.log((a - min(a)) + 0.1 * sp.var(a))
         else:
             vals = sp.log(a)
         self._perform_transform(vals,"log")
         return True
 
-    def sqrt_transform(self, method='standard'):
+    def _sqrt_transform(self, method='standard'):
         a = sp.array(self.values)
         if method == 'standard':
-            vals = sp.sqrt((a - min(a)) + 0.1 * sp.std(a))
+            vals = sp.sqrt((a - min(a)) + 0.1 * sp.var(a))
         else:
             vals = sp.sqrt(a)
         self._perform_transform(vals,"sqrt")
         return True
 
 
-    def ascombe_transform(self, pid, **kwargs):
+    def _ascombe_transform(self):
         a = sp.array(self.values)
         vals = 2.0 * sp.sqrt(a + 3.0 / 8.0)
-        self._perform_transform(vals,"ascombe")        
+        self._perform_transform(vals,"ascombe")
         return True
 
 
-    def sqr_transform(self,  method='standard'):
+    def _sqr_transform(self,  method='standard'):
         a = sp.array(self.values)
         if method == 'standard':
-            vals = ((a - min(a)) + 0.1 * sp.std(a)) * ((a - min(a)) + 0.1 * sp.std(a))
+            vals = ((a - min(a)) + 0.1 * sp.var(a)) * ((a - min(a)) + 0.1 * sp.var(a))
         else:
             vals = a * a
         self._perform_transform(vals,"sqr")
         return True
 
-    def exp_transform(self, method='standard'):
+    def _exp_transform(self, method='standard'):
         a = sp.array(self.values)
         if method == 'standard':
-            vals = sp.exp((a - min(a)) + 0.1 * sp.std(a))
+            vals = sp.exp((a - min(a)) + 0.1 * sp.var(a))
         else:
             vals = sp.exp(a)
         self._perform_transform(vals,"exp")
         return True
 
-    def arcsin_sqrt_transform(self, verbose=False):
+    def _arcsin_sqrt_transform(self, verbose=False):
         a = sp.array(self.values)
         if min(a) < 0 or max(a) > 1:
             log.debug('Some values are outside of range [0,1], hence skipping transformation!')
@@ -217,18 +223,18 @@ class Phenotype(object):
         self._perform_transform(vals,"arcsin")
         return True
 
-    def box_cox_transform(self, lambda_range=(-2.0, 2.0), lambda_increment=0.1, verbose=False, method='standard'):
+    def _box_cox_transform(self, verbose=False, method='standard'):
         """
         Performs the Box-Cox transformation, over different ranges, picking the optimal one w. respect to normality.
         """
         from scipy import stats
         a = sp.array(self.values)
         if method == 'standard':
-            vals = (a - min(a)) + 0.1 * sp.std(a)
+            vals = (a - min(a)) + 0.1 * sp.var(a)
         else:
             vals = a
         sw_pvals = []
-        lambdas = sp.arange(lambda_range[0], lambda_range[1] + lambda_increment, lambda_increment)
+        lambdas = sp.arange(-2.0, 2.1, 0.1)
         for l in lambdas:
             if l == 0:
                 vs = sp.log(vals)
@@ -240,41 +246,43 @@ class Phenotype(object):
             else:
                 pval = 0.0
             sw_pvals.append(pval)
-        log.info(sw_pvals)
         i = sp.argmax(sw_pvals)
         l = lambdas[i]
         if l == 0:
             vs = sp.log(vals)
         else:
             vs = ((vals ** l) - 1) / l
-        self._perform_transform(vals,"box-cox")
+        self._perform_transform(vs,"box_cox")
         log.debug('optimal lambda was %0.1f' % l)
         return True
 
 
 
     def transform(self, trans_type="most_normal", method='standard', verbose=False):
-        log.debug('Transforming phenotypes: %s' % trans_type)
+        log.info('Transforming phenotypes: %s' % trans_type)
+        if self.has_replicates():
+            log.info('Replicates found. Conveting to averages before applying transformation')
+            self.convert_to_averages()
         if trans_type == 'sqrt':
-            self.sqrt_transform(method=method)
+            self._sqrt_transform(method=method)
         elif trans_type == 'ascombe':
-            self.ascombe_transform(method=method)
+            self._ascombe_transform()
         elif trans_type == 'log':
-            self.log_transform(method=method)
+            self._log_transform(method=method)
         elif trans_type == 'sqr':
-            self.sqr_transform(method=method)
+            self._sqr_transform(method=method)
         elif trans_type == 'exp':
-            self.exp_transform(method=method)
+            self._exp_transform(method=method)
         elif trans_type == 'arcsin_sqrt':
-            self.arcsin_sqrt_transform(pid)
+            self._arcsin_sqrt_transform()
         elif trans_type == 'box_cox':
-            self.box_cox_transform(verbose=verbose)
+            self._box_cox_transform(verbose=verbose)
         elif trans_type == 'most_normal':
             trans_type, shapiro_pval = self.most_normal_transformation(verbose=verbose)
-        elif trans_type == 'none':
+        elif trans_type is None or trans_type == 'none':
             pass
         else:
-            raise Exception('Transformation unknown')
+            raise Exception('Transformation %s unknown' % trans_type)
         return trans_type
 
 
@@ -286,7 +294,7 @@ class Phenotype(object):
             self.values = self.raw_values
 
 
-    def most_normal_transformation(self,trans_types=['none', 'sqrt', 'log', 'sqr', 'exp', 'arcsin_sqrt'],
+    def most_normal_transformation(self,trans_types=SUPPORTED_TRANSFORMATIONS,
                 perform_trans=True, verbose=False):
         """
         Performs the transformation which results in most normal looking data, according to Shapiro-Wilk's test
@@ -294,6 +302,8 @@ class Phenotype(object):
         from scipy import stats
         shapiro_pvals = []
         for trans_type in trans_types:
+            if trans_type == 'most_normal':
+                continue
             if trans_type != 'none':
                 if not self.transform(trans_type=trans_type):
                     continue
@@ -309,13 +319,13 @@ class Phenotype(object):
                     pval = 0.0
             shapiro_pvals.append(pval)
             if trans_type != 'none':
-                self.revert_to_raw_values(pid)
+                self.revert_to_raw_values()
         argmin_i = sp.argmax(shapiro_pvals)
         trans_type = trans_types[argmin_i]
         shapiro_pval = shapiro_pvals[argmin_i]
         if perform_trans:
             self.transform(trans_type=trans_type)
-        log.debug("The most normal-looking transformation was %s, with a Shapiro-Wilk's p-value of %0.6f" % \
+        log.info("The most normal-looking transformation was %s, with a Shapiro-Wilk's p-value of %.2E" % \
                 (trans_type, shapiro_pval))
         return trans_type, shapiro_pval
 
@@ -439,7 +449,7 @@ class Phenotype(object):
         """
         avg_values = self.get_avg_value()
         self.ecotypes = avg_values['ecotypes']
-        self.values = avg_values['values'] 
+        self.values = avg_values['values']
 
 
 
@@ -483,7 +493,7 @@ def parse_phenotype_file(file_name, delim=','):
     import csv
     """
     Parses a phenotype file, and returns a new phenotype_data object.
-    
+
     """
     phen_data = {}
     with open(file_name, 'rU') as f:

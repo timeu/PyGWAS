@@ -1,7 +1,7 @@
 import pytest
 from os import path
 from pygwas.core import genotype
-from pygwas.core import phenotype
+from pygwas.core import phenotype as pheno
 from pygwas.core import result
 import json
 
@@ -24,22 +24,30 @@ snps_for_enrichment = gwas_result.get_top_snps(1000)
 snps_for_enrichment.sort(order=['scores'])
 snps_for_enrichment = snps_for_enrichment[:1000]
 
+
+ecotypes = [1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4]
+values = [12,10,11,13,20,23,22,22,60,64,59,62,80,90,85,86]
+
 @pytest.fixture
 def geno():
     return genotype.load_hdf5_genotype_data('%s/all_chromosomes_binary.hdf5' %resource_path)
 
 
 @pytest.fixture
-def kinship():phenotype
+def kinship():
     return None
 
 @pytest.fixture
 def phenotype():
-    return phenotype.parse_phenotype_file('%s/phenotype.csv' % resource_path)
+    return pheno.parse_phenotype_file('%s/phenotype.csv' % resource_path)
+
+@pytest.fixture
+def small_phenotype():
+    return pheno.Phenotype(ecotypes,values)
 
 @pytest.fixture
 def statisticsArgs():
-    return {'genotype_folder':resource_path,'genotype':'','type':'all'
+    return {'genotype_folder':resource_path,'type':'all', 'transformation':'none'
         ,'file':'%s/phenotype.csv' %resource_path,'kinship':None}
 
 @pytest.fixture
