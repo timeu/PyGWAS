@@ -39,6 +39,15 @@ setup(
         "h5py",
         "matplotlib >= 1.4.3"
     ],
+    setup_requires=[
+        "pytest-runner"
+    ],
+    tests_require=[
+        "pytest",
+        "pytest-cov",
+        "pytest-pep8",
+        "coverage"
+    ],
     entry_points={
         'console_scripts': [
             'pygwas=pygwas.__main__:main'

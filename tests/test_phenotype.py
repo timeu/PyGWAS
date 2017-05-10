@@ -33,7 +33,7 @@ class TestPhenotype:
     def test_sqrt_transformation(self,phenotype):
         assert phenotype.transformation is None
         phenotype.transform('sqrt')
-        assert phenotype.transformation == 'sqrt' and load kinship only if
+        assert phenotype.transformation == 'sqrt'
         np.testing.assert_allclose(np.mean(phenotype.values),9.1766423930810301,rtol=0.05, atol=0)
         np.testing.assert_allclose(np.std(phenotype.values),1.2054970137664522,rtol=0.05, atol=0)
 
