@@ -54,6 +54,13 @@ def statisticsArgs():
 def ld_filename():
     return '%s/ld.hdf5' % resource_path
 
+@pytest.fixture
+def csv_scores():
+    return '%s/csv_scores.csv' % resource_path
+
+@pytest.fixture
+def csv_pvalues():
+    return '%s/csv_pvalues.csv' % resource_path
 
 @pytest.fixture
 def genes():

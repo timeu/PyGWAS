@@ -1,3 +1,7 @@
+1.7.1
+--
+* Bugfix: loading a gwas result from csv will properly check if it contains pvalues or scores
+
 1.7.0
 --
 * Enhancement: Add support to transform phenotypes from the CLI
