@@ -1,4 +1,4 @@
-import genotype
+from . import genotype
 import numpy as np
 import random
 import logging

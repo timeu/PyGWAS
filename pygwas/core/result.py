@@ -1,5 +1,5 @@
 import logging
-import mtcorr
+from . import mtcorr
 import statistics as stats
 import math
 import h5py

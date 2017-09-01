@@ -6,7 +6,7 @@
 
 
 import time
-import datetime 
+import datetime
 
 class Timer(object):
     def __init__(self):
@@ -18,7 +18,7 @@ class Timer(object):
     def stop(self,is_readable=False):
         self._end = time.clock()
         self._secs = self._end - self._start
-	if is_readable: 
+        if is_readable:
             return self.readable()
         return self._secs
 
