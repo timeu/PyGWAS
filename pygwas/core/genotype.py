@@ -1,9 +1,9 @@
 import logging
-import kinship
+from . import kinship
 import bisect
 import itertools as iter
-import phenotype
-import data_parsers
+from . import phenotype
+from . import data_parsers
 import h5py
 import numpy
 import scipy
@@ -109,7 +109,7 @@ class AbstractGenotype(object):
     def chromosomes(self):
         chromosomes = []
         for i,chr_region in enumerate(self.chr_regions):
-			chromosomes.extend([self.chrs[i]] * (chr_region[1] - chr_region[0]))
+            chromosomes.extend([self.chrs[i]] * (chr_region[1] - chr_region[0]))
         return chromosomes
 
     @abstractproperty
@@ -659,32 +659,3 @@ class HDF5Genotype(AbstractGenotype):
             filtered_chr_regions.append((start_ix,end_ix))
             start_ix = end_ix
         return filtered_chr_regions
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

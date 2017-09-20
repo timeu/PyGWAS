@@ -9,7 +9,7 @@ import matplotlib.style
 matplotlib.style.use('default')
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import plot as pl
+from . import plot as pl
 
 
 SUPPORTED_FORMAT=('png','pdf')
@@ -150,4 +150,3 @@ def _get_chr_data(data,chr,mac=15):
         ix = chr_data['macs'] > mac
         return chr_data[ix]
     return chr_data
-

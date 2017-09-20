@@ -10,19 +10,19 @@
     :license: license_name, see LICENSE for more details
 """
 
-from __init__ import __version__,__updated__,__date__
+from .__init__ import __version__,__updated__,__date__
 import argparse
-from core import kinship
-from core import gwas
+from .core import kinship
+from .core import gwas
 import logging, logging.config
-from core import mtcorr
-from core import statistics as stats
-from core import phenotype
-from core import genotype
-from core.result import GWASResult
-from core import enrichment
-from core import result
-from core import plotting
+from .core import mtcorr
+from .core import statistics as stats
+from .core import phenotype
+from .core import genotype
+from .core.result import GWASResult
+from .core import enrichment
+from .core import result
+from .core import plotting
 import numpy as np
 import re
 import os
@@ -186,7 +186,7 @@ USAGE
     except KeyboardInterrupt:
         ### handle keyboard interrupt ###
         return 0
-    except Exception, e:
+    except Exception as e:
         log.exception(e)
         return 2
 
@@ -235,7 +235,7 @@ def calculate_stats(args):
     if stat_type == 'all' or stat_type == 'shapiro':
         statistics['shapiro'] = stats.calculate_sp_pval(phenData.values)
 
-    print statistics
+    print(statistics)
     return statistics
 
 
@@ -382,7 +382,7 @@ def calc_enrichment(args):
     top_snps.sort(order=['scores'])
     top_snps = top_snps[:args['top_snps_count']]
     pval = enrichment.enrichment(genes,genotype_data,top_snps,args['window_size'],args['permutation_count'])
-    print json.dumps(pval)
+    print(json.dumps(pval))
     return pval
 
 
@@ -438,7 +438,7 @@ def transform_phenotype(args):
     phenData = phenotype.parse_phenotype_file(phenotype_file)
     trans_type = phenData.transform(transformation)
     phenData.write_to_file(output_file)
-    print trans_type
+    print(trans_type)
     return trans_type
 
 
@@ -531,4 +531,3 @@ def _get_kinship_file_(folder):
 
 if __name__ == '__main__':
     sys.exit(main())
-

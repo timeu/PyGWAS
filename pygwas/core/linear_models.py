@@ -10,16 +10,16 @@ import scipy as sp
 from scipy import linalg
 from scipy import stats
 from scipy import optimize
-import genotype
+from . import genotype
 import pdb
-import cPickle
+import _pickle as cPickle
 import os
 import sys
 import time
 import itertools as it
 import math
 import os
-import kinship
+from . import kinship
 import logging
 import warnings
 
@@ -30,8 +30,8 @@ log = logging.getLogger(__name__)
 
 def cholesky(V):
     """
-    A ad hoc cholesky decomposition that attempts to use R through rpy2, 
-    if the matrix V is singular. 
+    A ad hoc cholesky decomposition that attempts to use R through rpy2,
+    if the matrix V is singular.
     """
     H_sqrt = sp.mat(linalg.cholesky(V))
     return H_sqrt
@@ -43,10 +43,10 @@ def qr_decomp(X):
     """
     ver_list = tuple(map(int, (sp.__version__).split('.')[:2]))
     if ver_list >= (0, 9):
-        return linalg.qr(X, mode='economic')  # Do the QR-decomposition for the Gram-Schmidt process.            
+        return linalg.qr(X, mode='economic')  # Do the QR-decomposition for the Gram-Schmidt process.
     else:
         return linalg.qr(X, econ=True)  # Do the QR-decomposition for the Gram-Schmidt process.
-    
+
 
 
 
@@ -132,8 +132,8 @@ class LinearModel(object):
         """
         A general F-test implementation.
         Where the hypothesis is A*beta=c, a constraint.
-        
-        Here A is a matrix, and c a column vector        
+
+        Here A is a matrix, and c a column vector
         """
         # if not self.residuals:
         self.get_residuals()
@@ -167,9 +167,9 @@ class LinearModel(object):
 
     def fast_f_test(self, genotype, verbose=True, Z=None, with_betas=False, progress_file_writer=None):
         """
-        LM implementation 
+        LM implementation
         Single SNPs
-                    
+
         """
         snps = genotype.get_snps_iterator(is_chunked=True)
         dtype = 'single'
@@ -218,7 +218,7 @@ class LinearModel(object):
                 else:
                     (betas, rss, p, sigma) = linalg.lstsq(Xs[j].T, Y, overwrite_a=True)
                 rss_list[i] = rss[0]
-                
+
                 if (i+1) % (num_snps / 10) == 0:
                     perc = 100.0 * i / num_snps
                     log.info('Performing regression (completed:%d %%)' % perc,extra={'progress':25 + 80*perc/100})
@@ -249,7 +249,7 @@ class LinearModel(object):
         h0_X = self.X
         Y = self.Y  # The transformed outputs.
 
-        # Contructing result containers        
+        # Contructing result containers
         p3_f_stat_array = sp.zeros((num_snps, num_snps))
         p3_p_val_array = sp.ones((num_snps, num_snps))
         p4_f_stat_array = sp.zeros((num_snps, num_snps))
@@ -287,7 +287,7 @@ class LinearModel(object):
                 snp2 = snps[j]
                 if i == j: continue  # Skip diagonals..
 
-                # Haplotype counts 
+                # Haplotype counts
                 hap_set, hap_counts, haplotypes = genotype.get_haplotypes([snp1, snp2], self.n,
                                             count_haplotypes=True)
                 groups = set(haplotypes)
@@ -387,7 +387,7 @@ class LinearModel(object):
                 sys.stdout.write('.')
                 sys.stdout.flush()
 
-        print no_interaction_count, identical_snp_count
+        print(no_interaction_count, identical_snp_count)
 
         #FINISH res dict!!!
         res_dict = {'p3_ps':p3_p_val_array, 'p3_f_stats':p3_f_stat_array, 'p4_ps':p4_p_val_array,
@@ -425,7 +425,7 @@ class LinearModel(object):
             (betas, rss, p, sigma) = linalg.lstsq(sp.mat(x).T, self.Y)
 
             if not rss:
-                print 'No predictability in the marker, moving on...'
+                print('No predictability in the marker, moving on...')
                 continue
             rss_list[i] = rss[0]
             betas_list[i] = map(float, list(betas))
@@ -450,11 +450,11 @@ class LinearModel(object):
     def anova_f_test_w_missing(self, snps):
         """
         A standard ANOVA, using a F-test
-        
+
         Handles SNPs w. missing data...
-        
-        Warning: This is a very time consuming approach. A faster, and probably a better, 
-                 approach would be to impute the missing values a priori 
+
+        Warning: This is a very time consuming approach. A faster, and probably a better,
+                 approach would be to impute the missing values a priori
 
         """
         (h0_betas, h0_rss, h0_rank, h0_s) = linalg.lstsq(self.X, self.Y)
@@ -507,19 +507,19 @@ class LinearModel(object):
     def test_explanatory_variable(self, x):
         """
         Returns a p-value for whether adding this variable to the model explains the model better.
-        
+
         Hopefully a sped-up version of a specific F-test.
         """
 
-        # THIS CAN BE SPED-UP MORE IF WE CHECK WHETHER self.X IS A VECTOR.  
-        # AND USE t-TEST. 
+        # THIS CAN BE SPED-UP MORE IF WE CHECK WHETHER self.X IS A VECTOR.
+        # AND USE t-TEST.
         res_1 = self.get_residuals()
 
         X_mat = sp.hstack([self.X, sp.matrix([[v] for v in x])])
         X_sq = X_mat.T * X_mat
         try:
             X_sq_inv = X_sq.I
-        except Exception, err_str:
+        except Exception as err_str:
             log.error(err_str)
             raise Exception('Andskotinn!!')
 
@@ -546,7 +546,7 @@ class LinearMixedModel(LinearModel):
         self.n = len(Y)
         self.y_var = sp.var(Y, ddof=1, dtype=dtype)
         self.Y = sp.matrix(Y, dtype=dtype)
-        self.Y.shape = (self.n, 1) 
+        self.Y.shape = (self.n, 1)
         self.X = sp.matrix(sp.ones((self.n, 1), dtype=dtype))  # The intercept
         self.p = 1
         self.beta_est = None
@@ -635,7 +635,7 @@ class LinearMixedModel(LinearModel):
     def get_REML(self, ngrids=100, llim= -10, ulim=10, esp=1e-6, eig_L=None, eig_R=None):
         """
         Get REML estimates for the effect sizes, as well as the random effect contributions.
-        
+
         This is EMMA
         """
         if not eig_L:
@@ -654,7 +654,7 @@ class LinearMixedModel(LinearModel):
     def get_ML(self, ngrids=100, llim= -10, ulim=10, esp=1e-6, eig_L=None, eig_R=None, H=None, H_inv=None, H_sqrt_inv=None, dtype='single'):
         """
         Get ML estimates for the effect sizes, as well as the random effect contributions.
-        
+
         H is the (full) covariance matrix, which speeds up calculations if it's available.
         """
         if H is None:
@@ -674,7 +674,7 @@ class LinearMixedModel(LinearModel):
             n = Y_t.shape[0]
             ll = -0.5 * (n * sp.log(2 * sp.pi) + sp.sum(sp.log(evals)) + mahalanobis_rss)
             assert len(mahalanobis_rss) > 0, 'WTF?'
-            res = {'ll': ll, 'rss':rss, 'mahalanobis_rss':mahalanobis_rss} 
+            res = {'ll': ll, 'rss':rss, 'mahalanobis_rss':mahalanobis_rss}
         return res
 
 
@@ -682,12 +682,12 @@ class LinearMixedModel(LinearModel):
                 verbose=False, dtype='single', debug=False):
         """
         Handles two K matrices, and one I matrix.
-        
-        Methods available are 'REML', and 'ML'        
+
+        Methods available are 'REML', and 'ML'
         """
 
         if verbose:
-            print 'Retrieving %s variance estimates' % method
+            print('Retrieving %s variance estimates' % method)
         if xs is not None:
             X = sp.hstack([self.X, xs])
         else:
@@ -756,11 +756,11 @@ class LinearMixedModel(LinearModel):
         """
         Get ML/REML estimates for the effect sizes, as well as the random effect contributions.
         Using the EMMA algorithm (Kang et al., Genetics, 2008).
-        
-        Methods available are 'REML', and 'ML'        
+
+        Methods available are 'REML', and 'ML'
         """
         if verbose:
-            print 'Retrieving %s variance estimates' % method
+            print('Retrieving %s variance estimates' % method)
         if xs is not None:
             X = sp.hstack([self.X, xs])
         else:
@@ -784,20 +784,20 @@ class LinearMixedModel(LinearModel):
         lambdas = sp.reshape(sp.repeat(eig_vals, m), (p, m)) + sp.reshape(sp.repeat(deltas, p), (m, p)).T
         s1 = sp.sum(sq_etas / lambdas, axis=0)
         if method == 'REML':
-            if verbose: print 'Calculating grid REML values'
+            if verbose: print('Calculating grid REML values')
             s2 = sp.sum(sp.log(lambdas), axis=0)
             lls = 0.5 * (p * (sp.log((p) / (2.0 * sp.pi)) - 1 - sp.log(s1)) - s2)
             s3 = sp.sum(sq_etas / (lambdas * lambdas), axis=0)
             s4 = sp.sum(1 / lambdas, axis=0)
             dlls = 0.5 * (p * s3 / s1 - s4)
         elif method == 'ML':
-            if verbose: print 'Calculating grid ML values'
+            if verbose: print('Calculating grid ML values')
             # Xis < -matrix(eig.L$values, n, m) + matrix(delta, n, m, byrow=TRUE)
             eig_vals_L = sp.array(eig_L['values'], dtype=dtype)
             xis = sp.reshape(sp.repeat(eig_vals_L, m), (n, m)) + \
                 sp.reshape(sp.repeat(deltas, n), (m, n)).T
-            # LL <- 0.5*(n*(log(n/(2*pi))-1-log(colSums(Etasq/Lambdas)))-colSums(log(Xis)))    
-            # dLL <- 0.5*delta*(n*colSums(Etasq/(Lambdas*Lambdas))/colSums(Etasq/Lambdas)-colSums(1/Xis))    
+            # LL <- 0.5*(n*(log(n/(2*pi))-1-log(colSums(Etasq/Lambdas)))-colSums(log(Xis)))
+            # dLL <- 0.5*delta*(n*colSums(Etasq/(Lambdas*Lambdas))/colSums(Etasq/Lambdas)-colSums(1/Xis))
 
             s2 = sp.sum(sp.log(xis), axis=0)
             lls = 0.5 * (n * (sp.log((n) / (2.0 * sp.pi)) - 1 - sp.log(s1)) - s2)
@@ -818,7 +818,7 @@ class LinearMixedModel(LinearModel):
             last_dll = dlls[i]
 
         if len(zero_intervals) > 0:
-            if verbose: print 'Found a zero interval... now performing Newton-Rhapson alg.'
+            if verbose: print('Found a zero interval... now performing Newton-Rhapson alg.')
             opt_ll, opt_i = max(zero_intervals)
             opt_delta = 0.5 * (deltas[opt_i - 1] + deltas[opt_i])
             # Newton-Raphson
@@ -831,12 +831,12 @@ class LinearMixedModel(LinearModel):
                     elif method == 'ML':
                         new_opt_delta = optimize.newton(self._dll_, opt_delta, args=(eig_vals, eig_vals_L, sq_etas),
                                                         tol=esp, maxiter=100)
-            except Exception, err_str:
+            except Exception as err_str:
                 if verbose:
-                    print 'Problems with Newton-Raphson method:', err_str
-                    print "Using the maximum grid value instead."
-                    print 'opt_i:', opt_i
-                    print 'Grid optimal delta:', opt_delta
+                    print('Problems with Newton-Raphson method:', err_str)
+                    print("Using the maximum grid value instead.")
+                    print('opt_i:', opt_i)
+                    print('Grid optimal delta:', opt_delta)
                 new_opt_delta = opt_delta
             # Validating the delta
             if opt_i > 1 and deltas[opt_i - 1] - esp < new_opt_delta < deltas[opt_i] + esp:
@@ -853,13 +853,13 @@ class LinearMixedModel(LinearModel):
                 opt_ll = self._rell_(opt_delta, eig_vals, sq_etas)
             else:
                 if verbose:
-                    print 'Local maximum outside of suggested possible areas?'
-                    print 'opt_i:', opt_i
-                    print 'Grid optimal delta:', opt_delta
-                    print "Newton's optimal delta:", new_opt_delta
-                    print 'Using the maximum grid value instead.'
+                    print('Local maximum outside of suggested possible areas?')
+                    print('opt_i:', opt_i)
+                    print('Grid optimal delta:', opt_delta)
+                    print("Newton's optimal delta:", new_opt_delta)
+                    print('Using the maximum grid value instead.')
 
-            if verbose: print 'Done with Newton-Rahpson'
+            if verbose: print('Done with Newton-Rahpson')
             if method == 'REML':
                 opt_ll = self._rell_(opt_delta, eig_vals, sq_etas)
             elif method == 'ML':
@@ -868,13 +868,13 @@ class LinearMixedModel(LinearModel):
             if opt_ll < max_ll:
                 opt_delta = deltas[max_ll_i]
         else:
-            if verbose: print 'No zero-interval was found, taking the maximum grid value.'
+            if verbose: print('No zero-interval was found, taking the maximum grid value.')
             opt_delta = deltas[max_ll_i]
             opt_ll = max_ll
 
-        if verbose: print 'Finishing up.. calculating H_sqrt_inv.'
+        if verbose: print('Finishing up.. calculating H_sqrt_inv.')
         l = sq_etas / (eig_vals + opt_delta)
-        opt_vg = sp.sum(l) / p  # vg   
+        opt_vg = sp.sum(l) / p  # vg
         opt_ve = opt_vg * opt_delta  # ve
 
         H_sqrt_inv = sp.mat(sp.diag(1.0 / sp.sqrt(eig_L['values'] + opt_delta)), dtype=dtype) * eig_L['vectors']
@@ -954,7 +954,7 @@ class LinearMixedModel(LinearModel):
         """
         EMMAX implementation (in python)
         Single SNPs
-        
+
         With interactions between SNP and possible cofactors.
         """
         assert len(self.random_effects) == 2, "Expedited REMLE only works when we have exactly two random effects."
@@ -966,7 +966,7 @@ class LinearMixedModel(LinearModel):
         eig_L = self._get_eigen_L_(K)
         res = self.get_expedited_REMLE(eig_L=eig_L)  # Get the variance estimates..
         delta = res['delta']
-        print 'pseudo_heritability:', 1.0 / (1 + delta)
+        print('pseudo_heritability:', 1.0 / (1 + delta))
         H_sqr = res['H_sqrt']
         H_sqrt_inv = H_sqr.I
         Y = H_sqrt_inv * self.Y  # The transformed outputs.
@@ -996,7 +996,7 @@ class LinearMixedModel(LinearModel):
             n_p = n - p
             if not rss:
                 if q == 0:
-                    print 'No predictability in the marker, moving on...'
+                    print('No predictability in the marker, moving on...')
                     p_vals.append(1)
                     f_stats.append(0)
                     rss_list.append(h0_rss)
@@ -1014,7 +1014,7 @@ class LinearMixedModel(LinearModel):
             betas_list.append(map(float, list(betas)))
             var_perc.append(float(1 - rss / h0_rss))
 
-        print 'low_int_af_count:', low_int_af_count
+        print('low_int_af_count:', low_int_af_count)
 
         return {'ps':p_vals, 'f_stats':f_stats, 'rss':rss_list, 'betas':betas_list,
             'delta':delta, 'pseudo_heritability': 1.0 / (1 + delta), 'var_perc':var_perc}
@@ -1025,13 +1025,13 @@ class LinearMixedModel(LinearModel):
         """
         EMMAX implementation (in python)
         Single SNPs
-        
+
         With interactions between SNP and possible cofactors.
         """
         K = self.random_effects[1][1]
         eig_L = self._get_eigen_L_(K)
         res = self.get_expedited_REMLE(eig_L=eig_L)  # Get the variance estimates..
-        print 'pseudo_heritability:', res['pseudo_heritability']
+        print('pseudo_heritability:', res['pseudo_heritability'])
 
         r = self._emmax_anova_f_test_(snps, res['H_sqrt'])
         r['pseudo_heritability'] = res['pseudo_heritability']
@@ -1044,7 +1044,7 @@ class LinearMixedModel(LinearModel):
         """
         EMMAX implementation (in python)
         Single SNPs
-        
+
         With interactions between SNP and possible cofactors.
         """
         n = self.n
@@ -1105,8 +1105,8 @@ class LinearMixedModel(LinearModel):
         """
         EMMAX permutation test
         Single SNPs
-        
-        Returns the list of max_pvals and max_fstats 
+
+        Returns the list of max_pvals and max_fstats
         """
         K = self.random_effects[1][1]
         eig_L = self._get_eigen_L_(K)
@@ -1207,11 +1207,11 @@ class LinearMixedModel(LinearModel):
         """
         EMMAX implementation (in python)
         Single SNPs
-        
+
         Methods:
             normal - Normal regression
             qr - Uses QR decomposition to speed up regression with many co-factors.
-            
+
         """
         snps = genotype.get_snps_iterator(is_chunked=True)
         dtype = 'single'
@@ -1264,12 +1264,12 @@ class LinearMixedModel(LinearModel):
                     (betas, rss, p, sigma) = linalg.lstsq(X_j.T, Y, overwrite_a=True)
                 if rss:
                     rss_list[i] = rss[0]
-    
+
                 if snp_priors is not None:
                     log_bfs[i] = log_h0_rss - sp.log(rss)  # -(1/2)*log(n)
                 if (i+1) % (num_snps / 10) == 0:
                     perc = round(100.0 * i /num_snps)
-                    log.info('Performing AMM (SNPs completed: %d %%)' % perc,extra={'progress':25 + 55*perc/100}) 
+                    log.info('Performing AMM (SNPs completed: %d %%)' % perc,extra={'progress':25 + 55*perc/100})
                 i += 1
         rss_ratio = h0_rss / rss_list
         var_perc = 1 - 1 / rss_ratio
@@ -1315,11 +1315,11 @@ class LinearMixedModel(LinearModel):
         """
         EMMAX implementation (in python)
         Single SNPs
-        
+
         Methods:
             normal - Normal regression
             qr - Uses QR decomposition to speed up regression with many co-factors.
-            
+
         """
         dtype = 'single'
         n = self.n
@@ -1427,7 +1427,7 @@ class LinearMixedModel(LinearModel):
         h0_X = H_sqrt_inv * self.X
         Y = H_sqrt_inv * self.Y  # The transformed outputs.
 
-        # Contructing result containers        
+        # Contructing result containers
         p3_f_stat_array = sp.zeros((num_snps, num_snps))
         p3_p_val_array = sp.ones((num_snps, num_snps))
         p4_f_stat_array = sp.zeros((num_snps, num_snps))
@@ -1467,7 +1467,7 @@ class LinearMixedModel(LinearModel):
                 snp2 = snps[j]
                 if i == j: continue  # Skip diagonals..
 
-                # Haplotype counts 
+                # Haplotype counts
                 hap_set, hap_counts, haplotypes = genotype.get_haplotypes([snp1, snp2], self.n,
                                             count_haplotypes=True)
                 groups = set(haplotypes)
@@ -1568,7 +1568,7 @@ class LinearMixedModel(LinearModel):
                 sys.stdout.write('.')
                 sys.stdout.flush()
 
-        print no_interaction_count, identical_snp_count
+        print(no_interaction_count, identical_snp_count)
 
         #FINISH res dict!!!
         res_dict = {'p3_ps':p3_p_val_array, 'p3_f_stats':p3_f_stat_array, 'p4_ps':p4_p_val_array,
@@ -1581,12 +1581,7 @@ class LinearMixedModel(LinearModel):
     def calc_statistics(self):
         """
         Returns all sorts of statistics used in stepwise regression
-        
-        Log Likelihood, BIC, modified BIC, extended BIC, RSS, mahalnobis RSS 
+
+        Log Likelihood, BIC, modified BIC, extended BIC, RSS, mahalnobis RSS
         """
         pass
-
-
-
-
-

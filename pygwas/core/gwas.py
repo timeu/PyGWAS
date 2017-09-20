@@ -6,10 +6,10 @@ Email: bjarni.vilhjalmsson@gmail.com
 
 """
 import logging
-from linear_models import LinearModel,LinearMixedModel
+from .linear_models import LinearModel,LinearMixedModel
 import numpy as np
 import scipy as sp
-from timer import Timer
+from .timer import Timer
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ def _log_choose_(n, k):
 
 def mm_lrt_test(y, K):
     """
-    Likelihood ratio test for whether the data (y) fits a mixed model with 
+    Likelihood ratio test for whether the data (y) fits a mixed model with
     two random terms fits significantly better.
     """
     lm = LinearModel(y)
@@ -142,7 +142,7 @@ def emmax_anova(snps, phenotypes, K):
 def lin_reg_step(phen_vals, sd, cof_chr_pos_list, progress_file_writer=None, plot_prefix=None):
     """
     Standard linear regression single SNPs..
-    
+
     Returns various stats useful for stepwise regression.
     """
     import bisect
@@ -153,7 +153,7 @@ def lin_reg_step(phen_vals, sd, cof_chr_pos_list, progress_file_writer=None, plo
     step_dict = {}
     step_dict['h0_rss'] = h0_rss
 
-    
+
     log.info('Looking up cofactors')
     cof_indices,cof_snps  = sd.get_snps_from_pos(cof_chr_pos_list)
     lm.set_factors(cof_snps)
@@ -224,7 +224,7 @@ def emmax_step(phen_vals, genotype, K, cof_chr_pos_list, eig_L=None, eig_R=None,
         emma_num=100):
     """
     EMMAX single SNPs
-    
+
     Returns various stats useful for stepwise regression.
     """
     import bisect
@@ -346,7 +346,7 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
         kwargs['macs'] = d['mafs']
         kwargs['mafs'] = d['marfs']
     if snp_priors:
-        print 'Using provided SNP priors'
+        print('Using provided SNP priors')
         kwargs['snp_priors'] = snp_priors[:]
 
     snps = kwargs['snps'][:]
@@ -363,13 +363,13 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
     num_snps = len(snps)
 
     if snp_priors == None:
-        print "Using default SNP priors"
+        print("Using default SNP priors")
         snp_priors = [1.0 / num_snps] * num_snps
 
     if not sign_threshold:  # Then use Bonferroni threshold
         sign_threshold = 1.0 / (num_snps * 20.0)
 
-    print "Running EMMAX stepwise"
+    print("Running EMMAX stepwise")
     s1 = time.time()
     step_info_list = []
     cofactors = []  # A list of the loci found, together with their statistics.
@@ -381,7 +381,7 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
     if K2 != None:  # Then first estimate K
         res = lmm.get_estimates_3()
         pherit = res['perc_var1']
-        print res['perc_var1'], res['perc_var2']
+        print(res['perc_var1'], res['perc_var2'])
         K = res['opt_k']
     eig_L = lmm._get_eigen_L_(K=K)
     eig_R = lmm._get_eigen_R_(K=K)
@@ -407,10 +407,10 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
     action = 'None'
     if K2 == None:
         pherit = reml_res['pseudo_heritability']
-    print '\nStep %d: action=%s, num_par=%d, p_her=%0.4f, ll=%0.2f, rss=%0.2f, reml_m_rss=%0.2f, bic=%0.2f, extended_bic=%0.2f, modified_bic=%0.2f, num_snps=%d' % \
+    print('\nStep %d: action=%s, num_par=%d, p_her=%0.4f, ll=%0.2f, rss=%0.2f, reml_m_rss=%0.2f, bic=%0.2f, extended_bic=%0.2f, modified_bic=%0.2f, num_snps=%d' % \
         (step_i, action, num_par, pherit, ll, rss, reml_mahalanobis_rss, \
-         bic, extended_bic, modified_bic, num_snps)
-    print 'Cofactors:', _cofactors_to_string_(cofactors)
+         bic, extended_bic, modified_bic, num_snps))
+    print('Cofactors:', _cofactors_to_string_(cofactors))
     quantiles_dict = {'log':[], 'norm':[], 'labels':[]}
 
     for step_i in range(1, num_steps + 1):
@@ -423,9 +423,9 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
         min_pval_chr_pos = chr_pos_list[min_pval_i]
         max_ppa_i = sp.argmax(emmax_res['ppas'])
         max_ppa = emmax_res['ppas'][max_ppa_i]
-        print 'Min p-value:', min_pval
+        print('Min p-value:', min_pval)
         criterias['bonf'].append(min_pval)
-        print 'Min Mahalanobis RSS:', mahalnobis_rss
+        print('Min Mahalanobis RSS:', mahalnobis_rss)
         step_info = {'pseudo_heritability':pherit, 'rss':rss, \
             'reml_mahalanobis_rss': reml_res['mahalanobis_rss'], 'mahalanobis_rss':mahalnobis_rss,
             'll':ll, 'bic':bic, 'e_bic':extended_bic, 'm_bic':modified_bic, 'mbonf':max_cofactor_pval,
@@ -444,7 +444,7 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
         ex_pvals = emmax_res['ps'].tolist()
         ex_perc_var_expl = emmax_res['var_perc'].tolist()
 
-        # Plot gwas results per step 
+        # Plot gwas results per step
         if file_prefix:
             _plot_manhattan_and_qq_(file_prefix, step_i - 1, ex_pvals, quantiles_dict, positions=positions,
                     chromosomes=chromosomes, mafs=mafs, macs=macs, perc_var_expl=ex_perc_var_expl,
@@ -456,7 +456,7 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
                     chrom_col_map=chrom_col_map)
         if save_pvals or pval_file_prefix:
             res = gr.Result(scores=ex_pvals, perc_var_expl=ex_perc_var_expl, **kwargs)
-            res.filter_percentile(0.02, reversed=True)            
+            res.filter_percentile(0.02, reversed=True)
             if save_pvals:
                 step_info['res'] = res
             if pval_file_prefix:
@@ -465,7 +465,7 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
 
         step_info['kolmogorov_smirnov'] = agr.calc_ks_stats(ex_pvals)
         step_info['pval_median'] = agr.calc_median(ex_pvals)
-        print step_info['kolmogorov_smirnov'], step_info['pval_median']
+        print(step_info['kolmogorov_smirnov'], step_info['pval_median'])
         step_info_list.append(step_info)
 
 
@@ -532,12 +532,12 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
 
         if K2 == None:
             pherit = reml_res['pseudo_heritability']
-        print '\nStep %d: action=%s, num_par=%d, p_her=%0.4f, ll=%0.2f, rss=%0.2f, reml_m_rss=%0.2f, bic=%0.2f, extended_bic=%0.2f, modified_bic=%0.2f, num_snps=%d' % \
+        print('\nStep %d: action=%s, num_par=%d, p_her=%0.4f, ll=%0.2f, rss=%0.2f, reml_m_rss=%0.2f, bic=%0.2f, extended_bic=%0.2f, modified_bic=%0.2f, num_snps=%d' % \
             (step_i, action, num_par, pherit, ll, rss, reml_mahalanobis_rss, \
-             bic, extended_bic, modified_bic, num_snps)
+             bic, extended_bic, modified_bic, num_snps))
 
-        print 'Cofactors:', _cofactors_to_string_(cofactors)
-        print ppa_cofactors
+        print('Cofactors:', _cofactors_to_string_(cofactors))
+        print(ppa_cofactors)
 #        if reml_res['pseudo_heritability'] < 0.01 and num_pher_0 < 1:
 #            num_pher_0 += 1
 #        elif reml_res['pseudo_heritability'] < 0.01:
@@ -546,7 +546,7 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
             if num_pher_0 < 1:
                 num_pher_0 += 1
             else:
-                print 'Breaking early, since pseudoheritability is close to 0.'
+                print('Breaking early, since pseudoheritability is close to 0.')
                 break
 
     emmax_res = lmm._emmax_f_test_(snps, H_sqrt_inv, snp_priors=snp_priors, emma_num=emma_num)  #FINISH!!!
@@ -556,8 +556,8 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
     min_pval_chr_pos = chr_pos_list[min_pval_i]
     max_ppa_i = sp.argmax(emmax_res['ppas'])
     ppas = emmax_res['ppas'].tolist()
-    print 'Min p-value:', min_pval
-    print 'Min Mahalanobis RSS:', mahalnobis_rss
+    print('Min p-value:', min_pval)
+    print('Min Mahalanobis RSS:', mahalnobis_rss)
     step_info = {'pseudo_heritability':pherit, 'rss':rss, 'reml_mahalanobis_rss': reml_res['mahalanobis_rss'],
         'mahalanobis_rss':mahalnobis_rss, 'll':ll, 'bic':bic, 'e_bic':extended_bic, 'm_bic':modified_bic,
         'mbonf':max_cofactor_pval, 'cofactors':map(tuple, cofactors[:]), 'cofactor_snps':cofactor_snps[:],
@@ -570,7 +570,7 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
     ex_perc_var_expl = emmax_res['var_perc'].tolist()
     if save_pvals:
         step_info['ps'] = ex_pvals
-    print "Generating plots"
+    print("Generating plots")
     # Now plotting!
     if file_prefix:
         _plot_manhattan_and_qq_(file_prefix, step_i, ex_pvals, quantiles_dict, positions=positions,
@@ -584,7 +584,7 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
         # Plot posterior probabilities of association
     if save_pvals or pval_file_prefix:
         res = gr.Result(scores=ex_pvals, perc_var_expl=ex_perc_var_expl, **kwargs)
-        res.filter_percentile(0.02, reversed=True)            
+        res.filter_percentile(0.02, reversed=True)
         if save_pvals:
             step_info['res'] = res
         if pval_file_prefix:
@@ -594,7 +594,7 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
 
     step_info['kolmogorov_smirnov'] = agr.calc_ks_stats(ex_pvals)
     step_info['pval_median'] = agr.calc_median(ex_pvals)
-    print step_info['kolmogorov_smirnov'], step_info['pval_median']
+    print(step_info['kolmogorov_smirnov'], step_info['pval_median'])
     step_info_list.append(step_info)
 
     if pval_file_prefix != None or save_pvals:
@@ -610,7 +610,7 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
 
     # Now backward stepwise.
     if forward_backwards:
-        print 'Starting backwards..'
+        print('Starting backwards..')
         while len(cofactor_snps) > 1:
             step_i += 1
             f_stats = sp.zeros(len(cofactor_snps))
@@ -675,12 +675,12 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
             criterias['mbics'].append(modified_bic)
             if K2 == None:
                 pherit = reml_res['pseudo_heritability']
-            print '\nStep %d: action=%s, num_par=%d, p_her=%0.4f, ll=%0.2f, rss=%0.2f, reml_m_rss=%0.2f, bic=%0.2f, extended_bic=%0.2f, modified_bic=%0.2f, num_snps=%d' % \
+            print('\nStep %d: action=%s, num_par=%d, p_her=%0.4f, ll=%0.2f, rss=%0.2f, reml_m_rss=%0.2f, bic=%0.2f, extended_bic=%0.2f, modified_bic=%0.2f, num_snps=%d' % \
                 (step_i, action, num_par, pherit, ll, rss,
-                reml_mahalanobis_rss, bic, extended_bic, modified_bic, num_snps)
+                reml_mahalanobis_rss, bic, extended_bic, modified_bic, num_snps))
 
-            print 'Cofactors:', _cofactors_to_string_(cofactors)
-            print ppa_cofactors
+            print('Cofactors:', _cofactors_to_string_(cofactors))
+            print(ppa_cofactors)
 
             step_info = {'pseudo_heritability':pherit, 'rss':rss, \
                 'reml_mahalanobis_rss': reml_res['mahalanobis_rss'], 'll':ll, 'bic':bic,
@@ -690,7 +690,7 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
                 'kolmogorov_smirnov':None, 'pval_median':None,
                 'ppa_cofactors': map(tuple, ppa_cofactors[:])}
             step_info_list.append(step_info)
-            print step_info['kolmogorov_smirnov'], step_info['pval_median']
+            print(step_info['kolmogorov_smirnov'], step_info['pval_median'])
 
     opt_dict, opt_indices = _analyze_opt_criterias_(criterias, sign_threshold, max_num_cofactors, file_prefix,
                         with_qq_plots, lmm, step_info_list, quantiles_dict,
@@ -710,9 +710,9 @@ def emmax_step_wise(phenotypes, K, sd=None, num_steps=10, file_prefix=None, forw
     if secs > 60:
         mins = int(secs) / 60
         secs = secs - mins * 60
-        print 'Took %d mins and %f seconds.' % (mins, secs)
+        print('Took %d mins and %f seconds.' % (mins, secs))
     else:
-        print 'Took %f seconds.' % (secs)
+        print('Took %f seconds.' % (secs))
 
     if file_prefix:
         _plot_stepwise_stats_(file_prefix, step_info_list, sign_threshold, type='emmax')
@@ -756,7 +756,7 @@ def lm_step_wise(phenotypes, sd=None, num_steps=10, file_prefix=None, forward_ba
     if not sign_threshold:  # Then use Bonferroni threshold
         sign_threshold = 1.0 / (num_snps * 20.0)
 
-    print "Running step-wise LM"
+    print("Running step-wise LM")
     s1 = time.time()
     step_info_list = []
     cofactors = []  # A list of the loci found, together with their statistics.
@@ -774,9 +774,9 @@ def lm_step_wise(phenotypes, sd=None, num_steps=10, file_prefix=None, forward_ba
     criterias['mbonf'].append(max_cofactor_pval)
     criterias['bonf'].append(0)
     action = 'None'
-    print '\nStep %d: action=%s, num_par=%d, ll=%0.2f, rss=%0.2f, bic=%0.2f, extended_bic=%0.2f, modified_bic=%0.2f' % \
-        (step_i, action, num_par, ll, rss, bic, extended_bic, modified_bic)
-    print 'Cofactors:', _cofactors_to_string_(cofactors)
+    print('\nStep %d: action=%s, num_par=%d, ll=%0.2f, rss=%0.2f, bic=%0.2f, extended_bic=%0.2f, modified_bic=%0.2f' % \
+        (step_i, action, num_par, ll, rss, bic, extended_bic, modified_bic))
+    print('Cofactors:', _cofactors_to_string_(cofactors))
     quantiles_dict = {'log':[], 'norm':[], 'labels':[]}
 
     for step_i in range(1, num_steps + 1):
@@ -786,7 +786,7 @@ def lm_step_wise(phenotypes, sd=None, num_steps=10, file_prefix=None, forward_ba
         min_pval_i = sp.argmin(lm_res['ps'])
         min_pval = lm_res['ps'][min_pval_i]
         min_pval_chr_pos = chr_pos_list[min_pval_i]
-        print 'Min p-value:', min_pval
+        print('Min p-value:', min_pval)
         criterias['bonf'].append(min_pval)
         step_info = {'rss':rss, 'll':ll, 'bic':bic, 'e_bic':extended_bic, 'm_bic':modified_bic,
                 'mbonf':max_cofactor_pval, 'cofactors':map(tuple, cofactors[:]),
@@ -794,7 +794,7 @@ def lm_step_wise(phenotypes, sd=None, num_steps=10, file_prefix=None, forward_ba
                 'min_pval_chr_pos': min_pval_chr_pos}
 
         lm_pvals = lm_res['ps'].tolist()
-        # Plot gwas results per step 
+        # Plot gwas results per step
         if file_prefix:
             _plot_manhattan_and_qq_(file_prefix, step_i - 1, lm_pvals, quantiles_dict, positions=positions,
                 chromosomes=chromosomes, mafs=mafs, macs=macs, plot_bonferroni=True, highlight_markers=cofactors,
@@ -810,7 +810,7 @@ def lm_step_wise(phenotypes, sd=None, num_steps=10, file_prefix=None, forward_ba
             pass
         step_info['kolmogorov_smirnov'] = agr.calc_ks_stats(lm_pvals)
         step_info['pval_median'] = agr.calc_median(lm_pvals)
-        print step_info['kolmogorov_smirnov'], step_info['pval_median']
+        print(step_info['kolmogorov_smirnov'], step_info['pval_median'])
         step_info_list.append(step_info)
 
 
@@ -852,15 +852,15 @@ def lm_step_wise(phenotypes, sd=None, num_steps=10, file_prefix=None, forward_ba
         criterias['ebics'].append(extended_bic)
         criterias['mbics'].append(modified_bic)
 
-        print '\nStep %d: action=%s, num_par=%d, ll=%0.2f, rss=%0.2f, bic=%0.2f, extended_bic=%0.2f, modified_bic=%0.2f' % \
-            (step_i, action, num_par, ll, rss, bic, extended_bic, modified_bic)
-        print 'Cofactors:', _cofactors_to_string_(cofactors)
+        print('\nStep %d: action=%s, num_par=%d, ll=%0.2f, rss=%0.2f, bic=%0.2f, extended_bic=%0.2f, modified_bic=%0.2f' % \
+            (step_i, action, num_par, ll, rss, bic, extended_bic, modified_bic))
+        print('Cofactors:', _cofactors_to_string_(cofactors))
 
     lm_res = lm.fast_f_test(snps)
     min_pval_i = sp.argmin(lm_res['ps'])
     min_pval = lm_res['ps'][min_pval_i]
     min_pval_chr_pos = chr_pos_list[min_pval_i]
-    print 'Min p-value:', min_pval
+    print('Min p-value:', min_pval)
     step_info = {'rss':rss, 'll':ll, 'bic':bic, 'e_bic':extended_bic, 'm_bic':modified_bic,
         'mbonf':max_cofactor_pval, 'cofactors':map(tuple, cofactors[:]),
         'cofactor_snps':cofactor_snps[:], 'min_pval':min_pval, 'min_pval_chr_pos': min_pval_chr_pos}
@@ -869,7 +869,7 @@ def lm_step_wise(phenotypes, sd=None, num_steps=10, file_prefix=None, forward_ba
         step_info['ps'] = lm_pvals
 
     # Now plotting!
-    print "Generating plots"
+    print("Generating plots")
     if file_prefix:
         _plot_manhattan_and_qq_(file_prefix, step_i, lm_pvals, quantiles_dict, positions=positions,
                     chromosomes=chromosomes, mafs=mafs, macs=macs, plot_bonferroni=True, highlight_markers=cofactors,
@@ -880,12 +880,12 @@ def lm_step_wise(phenotypes, sd=None, num_steps=10, file_prefix=None, forward_ba
     max_num_cofactors = len(cofactors)
     step_info['kolmogorov_smirnov'] = agr.calc_ks_stats(lm_pvals)
     step_info['pval_median'] = agr.calc_median(lm_pvals)
-    print step_info['kolmogorov_smirnov'], step_info['pval_median']
+    print(step_info['kolmogorov_smirnov'], step_info['pval_median'])
     step_info_list.append(step_info)
 
     # Now backward stepwise.
     if forward_backwards:
-        print 'Starting backwards..'
+        print('Starting backwards..')
         while len(cofactor_snps) > 1:
             step_i += 1
             f_stats = sp.zeros(len(cofactor_snps))
@@ -925,16 +925,16 @@ def lm_step_wise(phenotypes, sd=None, num_steps=10, file_prefix=None, forward_ba
             (bic, extended_bic, modified_bic) = _calc_bic_(ll, num_snps, num_par, lm.n)
             criterias['ebics'].append(extended_bic)
             criterias['mbics'].append(modified_bic)
-            print '\nStep %d: action=%s, num_par=%d, ll=%0.2f, rss=%0.2f, bic=%0.2f, extended_bic=%0.2f, modified_bic=%0.2f' % \
-                (step_i, action, num_par, ll, rss, bic, extended_bic, modified_bic)
-            print 'Cofactors:', _cofactors_to_string_(cofactors)
+            print('\nStep %d: action=%s, num_par=%d, ll=%0.2f, rss=%0.2f, bic=%0.2f, extended_bic=%0.2f, modified_bic=%0.2f' % \
+                (step_i, action, num_par, ll, rss, bic, extended_bic, modified_bic))
+            print('Cofactors:', _cofactors_to_string_(cofactors))
 
             step_info = {'rss':rss, 'll':ll, 'bic':bic, 'e_bic':extended_bic, 'm_bic':modified_bic,
                 'mbonf':max_cofactor_pval, 'cofactors':map(tuple, cofactors[:]),
                 'cofactor_snps':cofactor_snps[:], 'min_pval':None, 'min_pval_chr_pos':None,
                 'kolmogorov_smirnov':None, 'pval_median':None}
             step_info_list.append(step_info)
-            print cofactors
+            print(cofactors)
 
     opt_dict, opt_indices = _analyze_opt_criterias_(criterias, sign_threshold, max_num_cofactors, file_prefix,
                         with_qq_plots, lm, step_info_list, quantiles_dict,
@@ -957,9 +957,9 @@ def lm_step_wise(phenotypes, sd=None, num_steps=10, file_prefix=None, forward_ba
     if secs > 60:
         mins = int(secs) / 60
         secs = secs - mins * 60
-        print 'Took %d mins and %f seconds.' % (mins, secs)
+        print('Took %d mins and %f seconds.' % (mins, secs))
     else:
-        print 'Took %f seconds.' % (secs)
+        print('Took %f seconds.' % (secs))
     return res_dict
 
 
@@ -1043,4 +1043,3 @@ def _kw_get_ranks_(values, withTies=True):
     for i, (val, val_index) in enumerate(srt_vals):
         ranks[val_index] = srt_ranks[i]
     return ranks, np.array(group_counts)
-

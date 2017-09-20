@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 def calc_ibs_kinship(genotype, snp_dtype='int8', dtype='single',chunk_size=None):
     """
     Calculates IBS kinship
-    
+
     data_format: two are currently supported, 'binary', and 'diploid_int'
     """
     num_snps = genotype.num_snps
@@ -166,11 +166,6 @@ def save_kinship_to_file(kinship_file, kinship_mat, k_accessions, n_snps):
 
 def save_kinship_in_text_format(filename, k, accessions):
     with open(filename, 'w') as f:
-	writer = csv.writer(f,delimiter=',')
+        writer = csv.writer(f,delimiter=',')
         for acc, row in it.izip(accessions, k):
             f.writerow([acc,row.tolist()])
-
-
-
-
-
