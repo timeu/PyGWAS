@@ -14,7 +14,9 @@ import plot as pl
 
 SUPPORTED_FORMAT=('png','pdf')
 
-def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15, marker_size=10):
+def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15, marker_size=10, fdr = 'all', color_map=None):
+    if not color_map:
+        color_map = ['#4F94CD', '#36648B']
     chr_map = None
     if chrs is not None:
         chr_map = set(chrs)
@@ -34,7 +36,6 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15, marker_size=10):
     data = _get_data(gwas_result)
     offset = 0
     markersize = marker_size
-    color_map = ['#4F94CD', '#36648B']
     plt.figure(figsize=(11, 3.8))
     plt.axes([0.045, 0.15, 0.99, 0.61])
 
@@ -71,12 +72,18 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15, marker_size=10):
 
     score_range = max_score - min_score
     padding = 0.05*(score_range)
-    bonf_handle, = plt.plot([0, x_range], [bonferroni_threshold, bonferroni_threshold], color='r', linestyle="--", linewidth=1, alpha=.5)
-    if bh_thres is not None:
-        bh_handle, = plt.plot([0, x_range], [bh_thres, bh_thres], color='b', linestyle='--', linewidth=1, alpha=.5)
-        plt.figlegend((bonf_handle, bh_handle), ('Bonferroni', 'Benjamini Hochberg'), 'upper right')
-    else:
-        plt.figlegend((bonf_handle,), ('Bonferroni',), 'upper right')
+    fdr_labels = set()
+    fdr_handles = ()#
+    if fdr in ('all','bonferroni'):
+        handle, = plt.plot([0, x_range], [bonferroni_threshold, bonferroni_threshold], color='r', linestyle="--", linewidth=1, alpha=.5)
+        fdr_handles = fdr_handles + (handle,)
+        fdr_labels.add("Bonferroni")
+    if bh_thres is not None and fdr in ('all', 'benjamini_hochberg'):
+        handle, = plt.plot([0, x_range], [bh_thres, bh_thres], color='b', linestyle='--', linewidth=1, alpha=.5)
+        fdr_handles = fdr_handles + (handle,)
+        fdr_labels.add("Benjamini Hochberg")
+    if len(fdr_labels) > 0:
+        plt.figlegend(fdr_handles, fdr_labels, 'upper right')
     plt.axis([-x_range * 0.01, x_range * 1.01, min_score - padding, max_score + padding])
     ax = plt.gca()
     ax.xaxis.set_tick_params(direction='out')

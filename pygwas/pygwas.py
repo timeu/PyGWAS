@@ -102,6 +102,8 @@ def get_parser(program_license,program_version_message):
     plotter_parser.add_argument('-m','--macs',dest='macs',default=15,type=int,help='Minor Allele Count filter (Default: 15)')
     plotter_parser.add_argument('-s','--size',dest='marker_size',default=10,type=int,help='Size of the markers in the Manhattan plot (Default: 10)')
     plotter_parser.add_argument("-o",'--output',dest='output',required=True,help='The output image file')
+    plotter_parser.add_argument("-f",'--fdr',dest='fdr',default="all", help='The FDR threshold to plot. Default[all]', choices=["all", "bonferroni","benjamini_hochberg"])
+    plotter_parser.add_argument('--colored',dest='colored',action='store_true', help='Flag to use different colors for the chromosomes (Default:False)')
     plotter_parser.add_argument(dest="file", help="GWAS result file (.hdf5 or .csv)", metavar="FILE")
     plotter_parser.set_defaults(func=plot)
 
@@ -159,6 +161,7 @@ def main():
     program_build_date = str(__updated__)
     program_version_message = '%%(prog)s %s (%s)' % (program_version, program_build_date)
     program_shortdesc = "The main module for running Genome Wide Association studies"
+
     program_license = '''%s
 
   Created by Ümit Seren on %s.
@@ -268,7 +271,12 @@ def plot(args):
         gwas_result = result.load_from_hdf5(args['file'])
     else:
         gwas_result = result.load_from_csv(args['file'])
-    plotting.plot_gwas_result(gwas_result,args['output'],chrs,args['macs'],marker_size=marker_size)
+    fdr = args['fdr']
+    colored = args['colored']
+    color_map = None
+    if colored:
+        color_map = ['b', 'g', 'r', 'c', 'm']
+    plotting.plot_gwas_result(gwas_result,args['output'],chrs,args['macs'],marker_size=marker_size, fdr=fdr, color_map=color_map)
 
 
 def qq_plot(args):
