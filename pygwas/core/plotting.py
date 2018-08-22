@@ -72,16 +72,16 @@ def plot_gwas_result(gwas_result,output_file,chrs=None,mac=15, marker_size=10, f
 
     score_range = max_score - min_score
     padding = 0.05*(score_range)
-    fdr_labels = set()
-    fdr_handles = ()#
+    fdr_labels = ()
+    fdr_handles = ()
     if fdr in ('all','bonferroni'):
         handle, = plt.plot([0, x_range], [bonferroni_threshold, bonferroni_threshold], color='r', linestyle="--", linewidth=1, alpha=.5)
         fdr_handles = fdr_handles + (handle,)
-        fdr_labels.add("Bonferroni")
+        fdr_labels = fdr_labels + ("Bonferroni",)
     if bh_thres is not None and fdr in ('all', 'benjamini_hochberg'):
         handle, = plt.plot([0, x_range], [bh_thres, bh_thres], color='b', linestyle='--', linewidth=1, alpha=.5)
         fdr_handles = fdr_handles + (handle,)
-        fdr_labels.add("Benjamini Hochberg")
+        fdr_labels = fdr_labels + ("Benjamini Hochberg",)
     if len(fdr_labels) > 0:
         plt.figlegend(fdr_handles, fdr_labels, 'upper right')
     plt.axis([-x_range * 0.01, x_range * 1.01, min_score - padding, max_score + padding])

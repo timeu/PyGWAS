@@ -1,3 +1,7 @@
+1.7.3
+---
+* Bugfix: Correct figure label for FDR
+
 1.7.2
 --
 * Enhancement: Users can specifiy if the chromosome should be colored in different colors and which fdr threshold to include in the Manhattan plots
