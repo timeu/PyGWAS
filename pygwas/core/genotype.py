@@ -188,11 +188,21 @@ class AbstractGenotype(object):
         macs = []
         mafs = []
         num_nts = len(self.accessions)
-        for snp in self.get_snps_iterator():
-            l = scipy.bincount(snp)
-            mac = min(l)
-            macs.append(mac)
-            mafs.append(mac / float(num_nts))
+        if self.data_format in ['binary', 'int']:
+            for snp in self.get_snps_iterator():
+                l = scipy.bincount(snp)
+                mac = min(l)
+                macs.append(mac)
+                mafs.append(mac / float(num_nts))
+        elif self.data_format == 'diploid_int':
+            for snp in self.get_snps_iterator():
+                bin_counts = scipy.bincount(snp, minlength=3)
+                l = scipy.array([bin_counts[0], bin_counts[2]]) + bin_counts[1] / 2.0
+                mac = l.min()
+                macs.append(mac)
+                mafs.append(mac / float(num_nts))
+        else:
+            raise NotImplementedError
         return {"macs":macs, "mafs":mafs}
 
     @abstractproperty
@@ -323,10 +333,10 @@ class AbstractGenotype(object):
         snps_ix = []
         num_snps = self.num_snps
         for i,snps in enumerate(self.get_snps_iterator()):
-            bc = scipy.unique(snps)
-            if len(bc) == 1:
+            bc = numpy.unique(snps)
+            if len(numpy.unique(snps)) <= 1:
                 snps_ix.append(i)
-        numRemoved = len(self.positions) - len(snps_ix)
+        numRemoved = len(snps_ix)
         self.filter_snps_ix(snps_ix)
         log.info("Removed %d monomoprhic SNPs, leaving %d SNPs in total." % (numRemoved, num_snps))
         return (num_snps,numRemoved)

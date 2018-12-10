@@ -1,3 +1,7 @@
+1.7.4
+---
+* Bugfix: Fix MAC calculation for non-binary (diploid_int, int) genotypes
+
 1.7.3
 ---
 * Bugfix: Correct figure label for FDR

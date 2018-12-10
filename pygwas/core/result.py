@@ -158,7 +158,7 @@ class GWASResult(object):
                rows_to_write = row.tolist()
                rows_to_write[0] = int(rows_to_write[0])
                rows_to_write[1] = int(rows_to_write[1])
-               rows_to_write[4] = int(rows_to_write[4])
+               rows_to_write[4] = int(float(rows_to_write[4]))
                f.write(','.join(map(str,rows_to_write))+"\n")
 
 
